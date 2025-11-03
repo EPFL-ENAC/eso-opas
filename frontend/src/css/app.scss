@@ -1,0 +1,74 @@
+// app global css in SCSS form
+a {
+  text-decoration: none;
+  color: black;
+}
+a.epfl {
+  text-decoration: underline;
+  color: red;
+}
+
+a.q-markdown--link,
+a:hover.q-markdown--link,
+.text-help {
+  color: $grey-6;
+}
+
+li + li {
+  margin-top: 10px;
+}
+
+.text-logo {
+  color: red;
+  font-family: 'Helvetica';
+  font-weight: bold;
+  font-size: 2.3em;
+}
+
+.text-hint {
+  color: $grey-8;
+  font-size: 0.8em;
+}
+
+.app-md {
+  blockquote.q-markdown--note {
+    border-width: 0px 0px 0px 8px;
+    border-radius: 0;
+    border-style: solid;
+    border-color: #9e9e9e #009688;
+    background-color: white;
+  }
+
+  table.q-markdown--table ul {
+    padding-left: 20px;
+  }
+}
+
+.dialog-sm {
+  width: 500px !important;
+  max-width: 80vw !important;
+}
+
+.dialog-md {
+  width: 700px !important;
+  max-width: 80vw !important;
+}
+
+.dialog-lg {
+  width: 900px !important;
+  max-width: 80vw !important;
+}
+
+.option-0 {
+  padding-left: 0px;
+  //font-weight: bold;
+}
+
+.option-1 {
+  padding-left: 10px;
+}
+
+.option-2 {
+  padding-left: 20px;
+  font-size: smaller;
+}

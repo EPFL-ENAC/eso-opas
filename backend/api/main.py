@@ -1,14 +1,15 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from logging import INFO, basicConfig
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastapi_cache import FastAPICache
-from api.config import config
-from logging import basicConfig, INFO
+from fastapi_cache.backends.inmemory import InMemoryBackend
 from pydantic import BaseModel
-# from api.views.files import router as files_router
+
+from api.config import config
+from api.views.upload import router as upload_router
 
 basicConfig(level=INFO)
 
@@ -52,8 +53,8 @@ async def get_health() -> HealthCheck:
     return HealthCheck(status="OK")
 
 
-# app.include_router(
-#     files_router,
-#     prefix="/files",
-#     tags=["Files"],
-# )
+app.include_router(
+    upload_router,
+    prefix="/upload",
+    tags=["Upload data"],
+)

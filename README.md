@@ -18,6 +18,12 @@ Follow these instructions to run locally. First, run:
 make install
 ```
 
+Then, edit the `.env` file in the root directory of the repository with the following content (most fields must be left empty for local deployment):
+
+```env
+PATH_PREFIX=
+```
+
 ### Backend
 
 In one shell, run:

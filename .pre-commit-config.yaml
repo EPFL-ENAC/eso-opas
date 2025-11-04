@@ -17,13 +17,14 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-         - types-pyyaml
-         - types-requests
+          - types-aiofiles
+          - types-pyyaml
+          - types-requests
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.3
     hooks:
       - id: ruff  # Linter
-        args: [ --fix ]
+        args: [ --fix, --select, "I" ]
       - id: ruff-format  # Formatter
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1

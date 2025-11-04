@@ -6,6 +6,13 @@ export const useHeaderStore = defineStore('header', () => {
   const data = ref<Record<string, string> | null>(null);
   const error = ref<string | null>(null);
 
+  const bandNames = computed(() => {
+    if (!data.value || !data.value['band names']) {
+      return [];
+    }
+    return data.value['band names'].slice(1, -1).split(',').map(b => b.trim());
+  });
+
   function clearData() {
     data.value = null;
     error.value = null;
@@ -17,7 +24,6 @@ export const useHeaderStore = defineStore('header', () => {
     try {
       const text = await file.text();
       const lines = text.split('\n');
-      console.log(lines);
       if (lines.length === 0) {
         data.value = null;
         error.value = 'Header file is empty.';
@@ -45,6 +51,7 @@ export const useHeaderStore = defineStore('header', () => {
   return {
     data,
     error,
+    bandNames,
     clearData,
     loadData,
   };

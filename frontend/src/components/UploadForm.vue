@@ -33,6 +33,21 @@
         dense
       />
 
+      <q-select
+        v-if="headerStore.data"
+        v-model="selectedBands"
+        label="Select bands (at least one)"
+        class="q-mt-md"
+        :options="bandNamesOptions"
+        @filter="bandNamesFilterFn"
+        clearable
+        multiple
+        use-input
+        input-debounce="0"
+        use-chips
+        behavior="menu"
+      />
+
       <q-file
         v-if="headerStore.data"
         label="Select BIL files"
@@ -79,6 +94,7 @@ const headerStore = useHeaderStore();
 
 const headerFile = ref<File | null>(null);
 const imageFiles = ref<File[]>([]);
+const selectedBands = ref<string[]>([]);
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const sessionIdRef = ref<string | null>(null);
@@ -111,10 +127,32 @@ const headerRows = computed(() => {
 });
 
 
+const bandNamesOptions = ref<string[]>([]);
+watch(() => headerStore.bandNames, (newBandNames) => {
+  bandNamesOptions.value = newBandNames;
+}, { immediate: true });
+
+
+function bandNamesFilterFn(val: string, update: (callback: () => void) => void) {
+  if (val === '') {
+    update(() => {
+      bandNamesOptions.value = headerStore.bandNames;
+    });
+    return;
+  }
+
+  update(() => {
+    const needle = val.toLowerCase();
+    bandNamesOptions.value = headerStore.bandNames.filter(bandName => bandName.toLowerCase().includes(needle));
+  });
+}
+
+
 const canUploadFiles = computed(() => {
   const hasHeader = headerStore.data !== null;
   const hasBil = imageFiles.value.some(file => file.name.endsWith('.bil'));
-  return hasBil && hasHeader && !uploading.value;
+  const hasBands = selectedBands.value.length > 0;
+  return hasBil && hasHeader && hasBands && !uploading.value;
 });
 
 

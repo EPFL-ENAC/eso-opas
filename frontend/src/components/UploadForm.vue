@@ -37,51 +37,9 @@ const canUploadFiles = computed(() => {
 
 
 const apiEndpoint = 'http://localhost:8000';
-const chunkSizeMB = 10;
-const chunkSize = 2; // chunkSizeMB * 1024 * 1024;
-const parallelCount = 4;
-
-
-async function upload() {
-  if (!canUploadFiles.value) return;
-
-  const file = files.value.find(file => file.name.endsWith('.bil'));
-  if (!file) return;
-
-  // Process file: take only even-positionned bytes
-  const uploadSize = file.size / 2;
-
-  try {
-    const { sessionId, totalChunks } = await initUpload(file, uploadSize, chunkSize);
-    console.log(`Upload initialized with session ID: ${sessionId}, total chunks: ${totalChunks}`);
-
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-      const startByte = chunkIndex * chunkSize * 2;
-      const endByte = Math.min(startByte + chunkSize * 2, file.size);
-      const blobSlice = file.slice(startByte, endByte);
-      const readBuffer = await blobSlice.arrayBuffer();
-      const processedBuffer = new Uint8Array(readBuffer.byteLength / 2);
-
-      for (let i = 0, j = 0; i < readBuffer.byteLength; i += 2, j++) {
-        processedBuffer[j] = new Uint8Array(readBuffer)[i] || 0;
-      }
-
-      const { progress, isComplete } = await uploadChunk(sessionId, chunkIndex, processedBuffer.buffer);
-      console.log(`Uploaded chunk ${chunkIndex + 1}/${totalChunks}, progress: ${100 * progress}%`);
-
-      if (isComplete) {
-        console.log('Upload complete!');
-      }
-    }
-
-    const finalizeResponse = await finalizeUpload(sessionId);
-    console.log('Upload finalized:', finalizeResponse);
-
-  } catch (error) {
-    console.error('Upload failed:', error);
-    return;
-  }
-}
+const chunkSizeMB = 1;
+const chunkSize = chunkSizeMB * 1024 * 1024;
+const concurrentUploads = 4;
 
 
 async function initUpload(file: File, fileSize: number, chunkSize: number): Promise<UploadInitResponse> {
@@ -186,6 +144,64 @@ async function cancelUpload(sessionId: string): Promise<UploadCancelResponse> {
   return {
     detail: data.message,
   };
+}
+
+
+async function processAndUploadChunk(sessionId: string, file: File, chunkIndex: number, chunkSize: number): Promise<UploadChunkResponse> {
+  const startByte = chunkIndex * chunkSize * 2;
+  const endByte = Math.min(startByte + chunkSize * 2, file.size);
+  const blobSlice = file.slice(startByte, endByte);
+  const readBuffer = await blobSlice.arrayBuffer();
+  const processedBuffer = new Uint8Array(readBuffer.byteLength / 2);
+
+  for (let i = 0, j = 0; i < readBuffer.byteLength; i += 2, j++) {
+    processedBuffer[j] = new Uint8Array(readBuffer)[i] || 0;
+  }
+
+  return await uploadChunk(sessionId, chunkIndex, processedBuffer.buffer);
+}
+
+
+async function upload() {
+  if (!canUploadFiles.value) return;
+
+  const file = files.value.find(file => file.name.endsWith('.bil'));
+  if (!file) return;
+
+  // Process file: take only even-positionned bytes
+  const uploadSize = file.size / 2;
+
+  try {
+    const { sessionId, totalChunks } = await initUpload(file, uploadSize, chunkSize);
+    console.log(`Upload initialized with session ID: ${sessionId}, total chunks: ${totalChunks}`);
+
+    let nextChunkIndex = 0;
+    let completedChunks = 0;
+    const worker = async (): Promise<void> => {
+      while (true) {
+        const chunkIndex = nextChunkIndex++;
+        if (chunkIndex >= totalChunks) break;
+
+        await processAndUploadChunk(sessionId, file, chunkIndex, chunkSize);
+        completedChunks++;
+        const progress = completedChunks / totalChunks;
+        console.log(`Uploaded chunk ${chunkIndex + 1}/${totalChunks}, progress: ${100 * progress}%`);
+      }
+    }
+
+    const workers: Promise<void>[] = [];
+    for (let i = 0; i < concurrentUploads; i++) {
+      workers.push(worker());
+    }
+    await Promise.all(workers);
+
+    const finalizeResponse = await finalizeUpload(sessionId);
+    console.log('Upload finalized:', finalizeResponse);
+
+  } catch (error) {
+    console.error('Upload failed:', error);
+    return;
+  }
 }
 
 

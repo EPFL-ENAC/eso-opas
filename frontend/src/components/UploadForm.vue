@@ -19,6 +19,21 @@
         :disable="!canUploadFiles"
         @click="upload"
       />
+
+      <q-linear-progress
+        v-if="uploading"
+        :value="uploadProgress"
+        color="primary"
+        class="q-mt-md"
+        :animation-speed="200"
+      />
+
+      <q-btn
+        label="Cancel"
+        class="q-mt-sm"
+        v-if="uploading"
+        @click="cancel"
+      />
     </q-form>
   </div>
 </template>
@@ -26,6 +41,9 @@
 <script setup lang="ts">
 import type { UploadInitResponse, UploadChunkResponse, UploadFinalizeResponse, UploadCancelResponse } from 'src/models';
 const files = ref<File[]>([]);
+const uploading = ref(false);
+const uploadProgress = ref(0);
+const sessionIdRef = ref<string | null>(null);
 let uploadController: AbortController | null = null;
 
 
@@ -37,9 +55,9 @@ const canUploadFiles = computed(() => {
 
 
 const apiEndpoint = 'http://localhost:8000';
-const chunkSizeMB = 1;
+const chunkSizeMB = 10;
 const chunkSize = chunkSizeMB * 1024 * 1024;
-const concurrentUploads = 4;
+const concurrentUploads = 5;
 
 
 async function initUpload(file: File, fileSize: number, chunkSize: number): Promise<UploadInitResponse> {
@@ -173,6 +191,8 @@ async function upload() {
 
   try {
     const { sessionId, totalChunks } = await initUpload(file, uploadSize, chunkSize);
+    uploading.value = true;
+    sessionIdRef.value = sessionId;
     console.log(`Upload initialized with session ID: ${sessionId}, total chunks: ${totalChunks}`);
 
     let nextChunkIndex = 0;
@@ -180,12 +200,14 @@ async function upload() {
     const worker = async (): Promise<void> => {
       while (true) {
         const chunkIndex = nextChunkIndex++;
-        if (chunkIndex >= totalChunks) break;
+        if (chunkIndex >= totalChunks || !uploading.value) {
+          break;
+        }
 
         await processAndUploadChunk(sessionId, file, chunkIndex, chunkSize);
         completedChunks++;
-        const progress = completedChunks / totalChunks;
-        console.log(`Uploaded chunk ${chunkIndex + 1}/${totalChunks}, progress: ${100 * progress}%`);
+        uploadProgress.value = completedChunks / totalChunks;
+        console.log(`Uploaded chunk ${chunkIndex + 1}/${totalChunks}, progress: ${100 * uploadProgress.value}%`);
       }
     }
 
@@ -201,6 +223,29 @@ async function upload() {
   } catch (error) {
     console.error('Upload failed:', error);
     return;
+  } finally {
+    uploading.value = false;
+    sessionIdRef.value = null;
+    uploadProgress.value = 0;
+    uploadController = null;
+  }
+}
+
+
+async function cancel() {
+  if (!sessionIdRef.value) {
+    return;
+  }
+  try {
+    const cancelResponse = await cancelUpload(sessionIdRef.value);
+    console.log('Upload cancelled:', cancelResponse);
+  } catch (error) {
+    console.error('Failed to cancel upload:', error);
+  } finally {
+    uploading.value = false;
+    sessionIdRef.value = null;
+    uploadProgress.value = 0;
+    uploadController = null;
   }
 }
 

@@ -1,5 +1,9 @@
 <template>
-  <q-page> </q-page>
+  <q-page>
+    <upload-form />
+  </q-page>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+  import UploadForm from 'src/components/UploadForm.vue';
+</script>

@@ -22,7 +22,7 @@ declare module 'vue-i18n' {
 }
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 
-const defaultLocales = ['en', 'fr']
+const defaultLocales = ['en']
 
 const locales = defaultLocales
 
@@ -38,12 +38,12 @@ function getCurrentLocale(): string {
       detectedLocale = locales[0]
     }
   }
-  return detectedLocale || locales[0] || 'fr'
+  return detectedLocale || locales[0] || 'en'
 }
 
 const i18n = createI18n<{ message: MessageSchema }, MessageLanguages>({
   locale: getCurrentLocale(),
-  fallbackLocale: locales[0] || 'fr',
+  fallbackLocale: locales[0] || 'en',
   globalInjection: true,
   legacy: false,
   messages,

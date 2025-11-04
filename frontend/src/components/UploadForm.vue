@@ -2,10 +2,44 @@
   <div>
     <q-form>
       <q-file
-        label="Select BIL and HDR files"
-        accept=".bil,.hdr"
+        label="Select an HDR file"
+        accept=".hdr"
         multiple
-        v-model="files"
+        v-model="headerFile"
+      >
+        <template v-slot:prepend>
+          <q-icon name="attach_file" />
+        </template>
+      </q-file>
+
+      <q-banner
+        v-if="headerStore.error"
+        class="q-mt-md q-mb-md bg-negative text-white"
+        type="negative"
+        dense
+      >
+        <template v-slot:avatar>
+          <q-icon name="error" color="white" />
+        </template>
+        {{ headerStore.error }}
+      </q-banner>
+
+      <q-table
+        v-if="headerStore.data"
+        title="Header information"
+        class="q-mt-md"
+        :columns="headerColumns"
+        :rows="headerRows"
+        dense
+      />
+
+      <q-file
+        v-if="headerStore.data"
+        label="Select BIL files"
+        class="q-mt-md"
+        accept=".bil"
+        multiple
+        v-model="imageFiles"
       >
         <template v-slot:prepend>
           <q-icon name="attach_file" />
@@ -13,11 +47,19 @@
       </q-file>
 
       <q-btn
+        v-if="headerStore.data && !uploading"
         label="Upload"
         color="primary"
         class="q-mt-md"
         :disable="!canUploadFiles"
         @click="upload"
+      />
+
+      <q-btn
+        label="Cancel"
+        class="q-mt-md"
+        v-if="uploading"
+        @click="cancel"
       />
 
       <q-linear-progress
@@ -27,30 +69,52 @@
         class="q-mt-md"
         :animation-speed="200"
       />
-
-      <q-btn
-        label="Cancel"
-        class="q-mt-sm"
-        v-if="uploading"
-        @click="cancel"
-      />
     </q-form>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { UploadInitResponse, UploadChunkResponse, UploadFinalizeResponse, UploadCancelResponse } from 'src/models';
-const files = ref<File[]>([]);
+const headerStore = useHeaderStore();
+
+const headerFile = ref<File | null>(null);
+const imageFiles = ref<File[]>([]);
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const sessionIdRef = ref<string | null>(null);
 let uploadController: AbortController | null = null;
 
 
+watch(headerFile, async () => {
+  if (headerFile.value && Array.isArray(headerFile.value) && headerFile.value.length > 0) {
+    await headerStore.loadData(headerFile.value[0]);
+  } else {
+    headerStore.clearData();
+  }
+})
+
+
+const headerColumns = [
+  { name: 'key', label: 'Key', field: 'key', align: 'left' as const },
+  { name: 'value', label: 'Value', field: 'value', align: 'left' as const },
+];
+
+
+const headerRows = computed(() => {
+  if (!headerStore.data) {
+    return [];
+  }
+  return Object.entries(headerStore.data).map(([key, value]) => ({
+    key: key,
+    value: value,
+  }))
+});
+
+
 const canUploadFiles = computed(() => {
-  const hasBil = files.value.some(file => file.name.endsWith('.bil'));
-  const hdrCount = files.value.filter(file => file.name.endsWith('.hdr')).length;
-  return hasBil && hdrCount === 1;
+  const hasHeader = headerStore.data !== null;
+  const hasBil = imageFiles.value.some(file => file.name.endsWith('.bil'));
+  return hasBil && hasHeader && !uploading.value;
 });
 
 
@@ -183,7 +247,7 @@ async function processAndUploadChunk(sessionId: string, file: File, chunkIndex: 
 async function upload() {
   if (!canUploadFiles.value) return;
 
-  const file = files.value.find(file => file.name.endsWith('.bil'));
+  const file = imageFiles.value.find(file => file.name.endsWith('.bil'));
   if (!file) return;
 
   // Process file: take only even-positionned bytes

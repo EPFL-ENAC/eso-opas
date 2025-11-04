@@ -87,6 +87,7 @@
     "useAttrs": true,
     "useCssModule": true,
     "useCssVars": true,
+    "useHeaderStore": true,
     "useI18n": true,
     "useId": true,
     "useLink": true,

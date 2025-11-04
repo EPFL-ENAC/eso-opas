@@ -1,5 +1,5 @@
 <template>
-  <q-page>
+  <q-page class="q-pa-lg">
     <upload-form />
   </q-page>
 </template>

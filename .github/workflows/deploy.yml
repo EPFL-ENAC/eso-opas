@@ -7,16 +7,16 @@ name: deploy
       - dev
     tags: ["v*.*.*"]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{github.repository}}
 jobs:
   deploy:
-    permissions:
-      contents: read
-      packages: write
-    uses: EPFL-ENAC/epfl-enac-build-push-deploy-action/.github/workflows/deploy.yml@v2.4.0
+    uses: EPFL-ENAC/epfl-enac-build-push-deploy-action/.github/workflows/deploy.yml@v2.5.0
     secrets:
       token: ${{ secrets.CD_TOKEN }}
     with:
       # Optional inputs can be passed here
-      ORG: epfl-eso
-      REPO: opas
-      build_context: '[ "./"]'
+      org: epfl-eso
+      repo: opas
+      build_context: '["./backend", "./frontend"]' # Optional"

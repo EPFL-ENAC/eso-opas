@@ -90,8 +90,9 @@
 
 <script setup lang="ts">
 import type { UploadInitResponse, UploadChunkResponse, UploadFinalizeResponse, UploadCancelResponse } from 'src/models';
-const headerStore = useHeaderStore();
+import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
+const headerStore = useHeaderStore();
 const headerFile = ref<File | null>(null);
 const imageFiles = ref<File[]>([]);
 const selectedBands = ref<string[]>([]);
@@ -156,7 +157,6 @@ const canUploadFiles = computed(() => {
 });
 
 
-const apiEndpoint = 'http://localhost:8000';
 const chunkSizeMB = 10;
 const chunkSize = chunkSizeMB * 1024 * 1024;
 const concurrentUploads = 5;
@@ -166,7 +166,7 @@ async function initUpload(file: File, fileSize: number, chunkSize: number): Prom
   uploadController = new AbortController();
 
   const filename = encodeURIComponent(file.name);
-  const url = `${apiEndpoint}/upload/init?filename=${filename}&file_size=${fileSize}&chunk_size=${chunkSize}`;
+  const url = `${apiBaseUrl}/upload/init?filename=${filename}&file_size=${fileSize}&chunk_size=${chunkSize}`;
 
   const initResponse = await fetch(url, {
     method: 'POST',
@@ -191,7 +191,7 @@ async function uploadChunk(sessionId: string, chunkIndex: number, chunkData: Arr
     throw 'Upload controller not initialized';
   }
 
-  const url = `${apiEndpoint}/upload/chunk/${sessionId}?chunk_index=${chunkIndex}`;
+  const url = `${apiBaseUrl}/upload/chunk/${sessionId}?chunk_index=${chunkIndex}`;
   const formData = new FormData();
   formData.append('file', new Blob([chunkData]));
 
@@ -221,7 +221,7 @@ async function finalizeUpload(sessionId: string): Promise<UploadFinalizeResponse
     throw 'Upload controller not initialized';
   }
 
-  const url = `${apiEndpoint}/upload/finalize/${sessionId}`;
+  const url = `${apiBaseUrl}/upload/finalize/${sessionId}`;
 
   const finalizeResponse = await fetch(url, {
     method: 'POST',
@@ -248,7 +248,7 @@ async function cancelUpload(sessionId: string): Promise<UploadCancelResponse> {
     throw 'Upload controller not initialized';
   }
 
-  const url = `${apiEndpoint}/upload/cancel/${sessionId}`;
+  const url = `${apiBaseUrl}/upload/cancel/${sessionId}`;
 
   const cancelResponse = await fetch(url, {
     method: 'POST',

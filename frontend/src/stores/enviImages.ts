@@ -41,17 +41,8 @@ export const useEnviImagesStore = defineStore('enviImages', () => {
     loading.value = false;
   }
 
-  function getHeaderValue(baseName: string, key: string): string | null {
-    return images.value?.[baseName]?.headerData[key]?.trim() || null;
-  }
-
-  function getHeaderListValue(baseName: string, key: string): string[] | null {
-    const values = getHeaderValue(baseName, key);
-    if (!values) {
-      return null;
-    }
-
-    return values.slice(1, -1).split(',').map(v => v.trim());
+  function getHeaderValue(baseName: string, key: string): string | string[] | null {
+    return images.value?.[baseName]?.headerData[key] || null;
   }
 
   function getHeaderIntersectionListValue(key: string): string[] | null {
@@ -62,8 +53,7 @@ export const useEnviImagesStore = defineStore('enviImages', () => {
     let set = null;
 
     for (const baseName of Object.keys(images.value)) {
-      const value = getHeaderListValue(baseName, key);
-      console.log(baseName, value)
+      const value = getHeaderValue(baseName, key);
       if (!Array.isArray(value)) {
         return null;
       }

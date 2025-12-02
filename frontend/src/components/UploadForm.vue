@@ -36,7 +36,7 @@
 
         <q-table
           v-if="enviImagesStore.images"
-          title="Header information"
+          title="Header information (from first image)"
           class="q-mt-md"
           :columns="headerColumns"
           :rows="headerRows"
@@ -234,7 +234,7 @@ const headerRows = computed(() => {
   }
   return Object.entries(firstImage.headerData).map(([key, value]) => ({
     key: key,
-    value: value,
+    value: Array.isArray(value) ? value.join(',') : String(value),
   }))
 });
 

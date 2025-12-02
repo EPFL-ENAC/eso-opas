@@ -25,7 +25,7 @@ export class EnviBilError extends EnviError {
 export class EnviImage {
   headerFile: File;
   bilFile: File;
-  headerData: Record<string, string>;
+  headerData: Record<string, string | string[]>;
   loading: Promise<void>;
 
   constructor(headerFile: File, bilFile: File) {
@@ -50,12 +50,13 @@ export class EnviImage {
     });
   }
 
-  private async loadHeaderData(): Promise<Record<string, string>> {
-    const data: Record<string, string> = {};
+  private async loadHeaderData(): Promise<Record<string, string | string[]>> {
+    const data: Record<string, string | string[]> = {};
 
     try {
       const text = await this.headerFile.text();
       const lines = text.split('\n');
+
       if (lines.length === 0) {
         throw new EnviHeaderError('Header file is empty.');
       }
@@ -63,10 +64,18 @@ export class EnviImage {
       if (lines[0] !== "ENVI") {
         throw new EnviHeaderError('Invalid header file format. Should start with "ENVI".');
       }
+
       for (const line of lines.slice(1)) {
         const splitIndex = line.indexOf('=');
         const key = line.slice(0, splitIndex).trim();
         const value = line.slice(splitIndex + 1).trim();
+
+        if (value[0] === '{' && value[value.length - 1] === '}') {
+          const values = value.slice(1, -1).split(',').map(v => v.trim());
+          data[key] = values;
+          continue;
+        }
+
         data[key] = value;
       }
     } catch (e) {

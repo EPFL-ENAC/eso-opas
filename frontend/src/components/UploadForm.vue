@@ -23,7 +23,7 @@
         </q-file>
 
         <q-banner
-          v-if="headersStore.error"
+          v-if="enviImagesStore.error"
           class="q-mt-md q-mb-md bg-negative text-white"
           type="negative"
           dense
@@ -31,11 +31,11 @@
           <template v-slot:avatar>
             <q-icon name="error" color="white" />
           </template>
-          {{ headersStore.error }}
+          {{ enviImagesStore.error }}
         </q-banner>
 
         <q-table
-          v-if="headersStore.data"
+          v-if="enviImagesStore.images"
           title="Header information"
           class="q-mt-md"
           :columns="headerColumns"
@@ -44,7 +44,7 @@
         />
 
         <q-stepper-navigation
-          v-if="filesSelectionIsValid && headersStore.data"
+          v-if="filesSelectionIsValid && enviImagesStore.images"
         >
           <q-btn
             @click="step = 2"
@@ -73,7 +73,7 @@
         :done="step > 2"
       >
         <q-select
-          v-if="headersStore.wavelengths"
+          v-if="enviImagesStore.wavelengths"
           v-model="selectedWavelengths"
           label="Select wavelengths (at least one)"
           class="q-mt-md"
@@ -88,7 +88,7 @@
         />
 
         <q-select
-          v-if="!headersStore.wavelengths && headersStore.bandNames"
+          v-if="!enviImagesStore.wavelengths && enviImagesStore.bandNames"
           v-model="selectedBands"
           label="Select bands (at least one)"
           class="q-mt-md"
@@ -133,7 +133,7 @@
         :done="step > 3"
       >
         <q-btn
-          v-if="headersStore.data && !uploading"
+          v-if="enviImagesStore.images && !uploading"
           label="Upload"
           color="primary"
           class="q-mt-md"
@@ -169,7 +169,7 @@ import type { UploadInitResponse, UploadChunkResponse, UploadFinalizeResponse, U
 import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
 const step = ref(1);
-const headersStore = useHeadersStore();
+const enviImagesStore = useEnviImagesStore();
 const files = ref<File[]>([]);
 const selectedWavelengths = ref<string[]>([]);
 const selectedBands = ref<string[]>([]);
@@ -211,9 +211,9 @@ const filesSelectionIsValid = computed(() => {
 
 watch(headerFiles, async () => {
   if (filesSelectionIsValid.value) {
-    await headersStore.loadData(headerFiles.value);
+    enviImagesStore.loadData(headerFiles.value, imageFiles.value);
   } else {
-    headersStore.clearData();
+    enviImagesStore.clearData();
   }
 })
 
@@ -225,10 +225,14 @@ const headerColumns = [
 
 
 const headerRows = computed(() => {
-  if (!headersStore.data) {
+  if (!enviImagesStore.images) {
     return [];
   }
-  return Object.entries(Object.values(headersStore.data)[0]).map(([key, value]) => ({
+  const firstImage = Object.values(enviImagesStore.images)[0];
+  if (!firstImage || !firstImage.headerData) {
+    return [];
+  }
+  return Object.entries(firstImage.headerData).map(([key, value]) => ({
     key: key,
     value: value,
   }))
@@ -236,7 +240,7 @@ const headerRows = computed(() => {
 
 
 const wavelengthsOptions = ref<string[]>([]);
-watch(() => headersStore.wavelengths, (newWavelengths) => {
+watch(() => enviImagesStore.wavelengths, (newWavelengths) => {
   wavelengthsOptions.value = newWavelengths || []
 }, { immediate: true });
 
@@ -244,34 +248,27 @@ watch(() => headersStore.wavelengths, (newWavelengths) => {
 function wavelengthsFilterFn(val: string, update: (callback: () => void) => void) {
   update(() => {
     const needle = val.toLowerCase();
-    wavelengthsOptions.value = headersStore.wavelengths?.filter(wavelength => wavelength.toLowerCase().includes(needle)) || [];
+    wavelengthsOptions.value = enviImagesStore.wavelengths?.filter(wavelength => wavelength.toLowerCase().includes(needle)) || [];
   });
 }
 
 
 const bandNamesOptions = ref<string[]>([]);
-watch(() => headersStore.bandNames, (newBandNames) => {
+watch(() => enviImagesStore.bandNames, (newBandNames) => {
   bandNamesOptions.value = newBandNames || [];
 }, { immediate: true });
 
 
 function bandNamesFilterFn(val: string, update: (callback: () => void) => void) {
-  if (val === '') {
-    update(() => {
-      bandNamesOptions.value = headersStore.bandNames;
-    });
-    return;
-  }
-
   update(() => {
     const needle = val.toLowerCase();
-    bandNamesOptions.value = headersStore.bandNames?.filter(bandName => bandName.toLowerCase().includes(needle)) || [];
+    bandNamesOptions.value = enviImagesStore.bandNames?.filter(bandName => bandName.toLowerCase().includes(needle)) || [];
   });
 }
 
 
 const canUploadFiles = computed(() => {
-  const hasHeader = headersStore.data !== null;
+  const hasHeader = enviImagesStore.images !== null;
   const hasBil = imageFiles.value.some(file => file.name.endsWith('.bil'));
   const hasWavelengths = selectedWavelengths.value.length > 0;
   const hasBands = selectedBands.value.length > 0;

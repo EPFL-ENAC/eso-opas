@@ -78,6 +78,7 @@ declare global {
   const useAttrs: typeof import('vue')['useAttrs']
   const useCssModule: typeof import('vue')['useCssModule']
   const useCssVars: typeof import('vue')['useCssVars']
+  const useEnviImagesStore: typeof import('./stores/enviImages')['useEnviImagesStore']
   const useHeaderStore: typeof import('./stores/header')['useHeaderStore']
   const useHeadersStore: typeof import('./stores/headers')['useHeadersStore']
   const useI18n: typeof import('vue-i18n')['useI18n']
@@ -179,7 +180,7 @@ declare module 'vue' {
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>
     readonly useCssVars: UnwrapRef<typeof import('vue')['useCssVars']>
-    readonly useHeadersStore: UnwrapRef<typeof import('./stores/headers')['useHeadersStore']>
+    readonly useEnviImagesStore: UnwrapRef<typeof import('./stores/enviImages')['useEnviImagesStore']>
     readonly useI18n: UnwrapRef<typeof import('vue-i18n')['useI18n']>
     readonly useId: UnwrapRef<typeof import('vue')['useId']>
     readonly useLink: UnwrapRef<typeof import('vue-router')['useLink']>

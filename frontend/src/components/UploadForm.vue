@@ -1,90 +1,166 @@
 <template>
   <div>
-    <q-form>
-      <q-file
-        label="Select an HDR file"
-        accept=".hdr"
-        multiple
-        v-model="headerFile"
+    <q-stepper
+      v-model="step"
+      vertical
+      animated
+    >
+      <q-step
+        :name="1"
+        title="Select files"
+        icon="attach_file"
+        :done="step > 1"
       >
-        <template v-slot:prepend>
-          <q-icon name="attach_file" />
-        </template>
-      </q-file>
+        <q-file
+          label="Select HDR and BIL files"
+          accept=".hdr,.bil"
+          multiple
+          v-model="files"
+        >
+          <template v-slot:prepend>
+            <q-icon name="attach_file" />
+          </template>
+        </q-file>
 
-      <q-banner
-        v-if="headerStore.error"
-        class="q-mt-md q-mb-md bg-negative text-white"
-        type="negative"
-        dense
+        <q-banner
+          v-if="headersStore.error"
+          class="q-mt-md q-mb-md bg-negative text-white"
+          type="negative"
+          dense
+        >
+          <template v-slot:avatar>
+            <q-icon name="error" color="white" />
+          </template>
+          {{ headersStore.error }}
+        </q-banner>
+
+        <q-table
+          v-if="headersStore.data"
+          title="Header information"
+          class="q-mt-md"
+          :columns="headerColumns"
+          :rows="headerRows"
+          dense
+        />
+
+        <q-stepper-navigation
+          v-if="filesSelectionIsValid && headersStore.data"
+        >
+          <q-btn
+            @click="step = 2"
+            label="Continue"
+            color="primary"
+          />
+        </q-stepper-navigation>
+
+        <q-banner
+          v-else
+          class="q-mt-md bg-info text-black"
+          type="info"
+          dense
+        >
+          <template v-slot:avatar>
+            <q-icon name="info" color="black" />
+          </template>
+          Please select at least one BIL file and its corresponding HDR file(s).
+        </q-banner>
+      </q-step>
+
+      <q-step
+        :name="2"
+        title="Select channels"
+        icon="tune"
+        :done="step > 2"
       >
-        <template v-slot:avatar>
-          <q-icon name="error" color="white" />
-        </template>
-        {{ headerStore.error }}
-      </q-banner>
+        <q-select
+          v-if="headersStore.wavelengths"
+          v-model="selectedWavelengths"
+          label="Select wavelengths (at least one)"
+          class="q-mt-md"
+          :options="wavelengthsOptions"
+          @filter="wavelengthsFilterFn"
+          clearable
+          multiple
+          use-input
+          input-debounce="0"
+          use-chips
+          behavior="menu"
+        />
 
-      <q-table
-        v-if="headerStore.data"
-        title="Header information"
-        class="q-mt-md"
-        :columns="headerColumns"
-        :rows="headerRows"
-        dense
-      />
+        <q-select
+          v-if="!headersStore.wavelengths && headersStore.bandNames"
+          v-model="selectedBands"
+          label="Select bands (at least one)"
+          class="q-mt-md"
+          :options="bandNamesOptions"
+          @filter="bandNamesFilterFn"
+          clearable
+          multiple
+          use-input
+          input-debounce="0"
+          use-chips
+          behavior="menu"
+        />
 
-      <q-select
-        v-if="headerStore.data"
-        v-model="selectedBands"
-        label="Select bands (at least one)"
-        class="q-mt-md"
-        :options="bandNamesOptions"
-        @filter="bandNamesFilterFn"
-        clearable
-        multiple
-        use-input
-        input-debounce="0"
-        use-chips
-        behavior="menu"
-      />
+        <q-stepper-navigation
+          v-if="selectedWavelengths.length > 0 || selectedBands.length > 0"
+        >
+          <q-btn
+            @click="step = 3"
+            label="Continue"
+            color="primary"
+          />
+          <q-btn flat @click="step = 1" color="primary" label="Back" class="q-ml-sm" />
+        </q-stepper-navigation>
 
-      <q-file
-        v-if="headerStore.data"
-        label="Select BIL files"
-        class="q-mt-md"
-        accept=".bil"
-        multiple
-        v-model="imageFiles"
+        <q-banner
+          v-else
+          class="q-mt-md bg-info text-black"
+          type="info"
+          dense
+        >
+          <template v-slot:avatar>
+            <q-icon name="info" color="black" />
+          </template>
+          Please select at least one channel.
+        </q-banner>
+      </q-step>
+
+      <q-step
+        :name="3"
+        title="Upload and process"
+        icon="cloud_upload"
+        :done="step > 3"
       >
-        <template v-slot:prepend>
-          <q-icon name="attach_file" />
-        </template>
-      </q-file>
+        <q-btn
+          v-if="headersStore.data && !uploading"
+          label="Upload"
+          color="primary"
+          class="q-mt-md"
+          :disable="!canUploadFiles"
+          @click="upload"
+        />
 
-      <q-btn
-        v-if="headerStore.data && !uploading"
-        label="Upload"
-        color="primary"
-        class="q-mt-md"
-        :disable="!canUploadFiles"
-        @click="upload"
-      />
+        <q-btn
+          label="Cancel"
+          class="q-mt-md"
+          v-if="uploading"
+          @click="cancel"
+        />
 
-      <q-btn
-        label="Cancel"
-        class="q-mt-md"
-        v-if="uploading"
-        @click="cancel"
-      />
+        <q-linear-progress
+          v-if="uploading"
+          :value="uploadProgress"
+          color="primary"
+          class="q-mt-md"
+          :animation-speed="200"
+        />
 
-      <q-linear-progress
-        v-if="uploading"
-        :value="uploadProgress"
-        color="primary"
-        class="q-mt-md"
-        :animation-speed="200"
-      />
-    </q-form>
+        <q-stepper-navigation>
+          <q-btn flat @click="step = 2" color="primary" label="Back" class="q-ml-sm" />
+        </q-stepper-navigation>
+      </q-step>
+    </q-stepper>
   </div>
 </template>
 
@@ -92,9 +168,10 @@
 import type { UploadInitResponse, UploadChunkResponse, UploadFinalizeResponse, UploadCancelResponse } from 'src/models';
 import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
-const headerStore = useHeaderStore();
-const headerFile = ref<File | null>(null);
-const imageFiles = ref<File[]>([]);
+const step = ref(1);
+const headersStore = useHeadersStore();
+const files = ref<File[]>([]);
+const selectedWavelengths = ref<string[]>([]);
 const selectedBands = ref<string[]>([]);
 const uploading = ref(false);
 const uploadProgress = ref(0);
@@ -102,11 +179,41 @@ const sessionIdRef = ref<string | null>(null);
 let uploadController: AbortController | null = null;
 
 
-watch(headerFile, async () => {
-  if (headerFile.value && Array.isArray(headerFile.value) && headerFile.value.length > 0) {
-    await headerStore.loadData(headerFile.value[0]);
+const headerFiles = computed(() => {
+  return files.value.filter(file => file.name.endsWith('.hdr'));
+});
+
+const imageFiles = computed(() => {
+  return files.value.filter(file => file.name.endsWith('.bil'));
+});
+
+const filesSelectionIsValid = computed(() => {
+  if (headerFiles.value.length === 0) {
+    return false;
+  }
+
+  if (imageFiles.value.length !== headerFiles.value.length) {
+    return false;
+  }
+
+  for (const headerFile of headerFiles.value) {
+    const baseName = headerFile.name.slice(0, -4);
+    const imageName = `${baseName}.bil`;
+    const matchingImageFile = imageFiles.value.find(file => file.name === imageName);
+    if (!matchingImageFile) {
+      return false;
+    }
+  }
+
+  return true;
+});
+
+
+watch(headerFiles, async () => {
+  if (filesSelectionIsValid.value) {
+    await headersStore.loadData(headerFiles.value);
   } else {
-    headerStore.clearData();
+    headersStore.clearData();
   }
 })
 
@@ -118,42 +225,57 @@ const headerColumns = [
 
 
 const headerRows = computed(() => {
-  if (!headerStore.data) {
+  if (!headersStore.data) {
     return [];
   }
-  return Object.entries(headerStore.data).map(([key, value]) => ({
+  return Object.entries(Object.values(headersStore.data)[0]).map(([key, value]) => ({
     key: key,
     value: value,
   }))
 });
 
 
+const wavelengthsOptions = ref<string[]>([]);
+watch(() => headersStore.wavelengths, (newWavelengths) => {
+  wavelengthsOptions.value = newWavelengths || []
+}, { immediate: true });
+
+
+function wavelengthsFilterFn(val: string, update: (callback: () => void) => void) {
+  update(() => {
+    const needle = val.toLowerCase();
+    wavelengthsOptions.value = headersStore.wavelengths?.filter(wavelength => wavelength.toLowerCase().includes(needle)) || [];
+  });
+}
+
+
 const bandNamesOptions = ref<string[]>([]);
-watch(() => headerStore.bandNames, (newBandNames) => {
-  bandNamesOptions.value = newBandNames;
+watch(() => headersStore.bandNames, (newBandNames) => {
+  bandNamesOptions.value = newBandNames || [];
 }, { immediate: true });
 
 
 function bandNamesFilterFn(val: string, update: (callback: () => void) => void) {
   if (val === '') {
     update(() => {
-      bandNamesOptions.value = headerStore.bandNames;
+      bandNamesOptions.value = headersStore.bandNames;
     });
     return;
   }
 
   update(() => {
     const needle = val.toLowerCase();
-    bandNamesOptions.value = headerStore.bandNames.filter(bandName => bandName.toLowerCase().includes(needle));
+    bandNamesOptions.value = headersStore.bandNames?.filter(bandName => bandName.toLowerCase().includes(needle)) || [];
   });
 }
 
 
 const canUploadFiles = computed(() => {
-  const hasHeader = headerStore.data !== null;
+  const hasHeader = headersStore.data !== null;
   const hasBil = imageFiles.value.some(file => file.name.endsWith('.bil'));
+  const hasWavelengths = selectedWavelengths.value.length > 0;
   const hasBands = selectedBands.value.length > 0;
-  return hasBil && hasHeader && hasBands && !uploading.value;
+  return hasBil && hasHeader && (hasWavelengths || hasBands) && !uploading.value;
 });
 
 

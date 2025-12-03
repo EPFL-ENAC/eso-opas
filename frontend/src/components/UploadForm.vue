@@ -166,6 +166,7 @@
 
 <script setup lang="ts">
 import type { UploadInitResponse, UploadChunkResponse, UploadFinalizeResponse, UploadCancelResponse } from 'src/models';
+import type { EnviImage } from '../envi_bil_reader/image';
 import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
 const step = ref(1);
@@ -281,10 +282,8 @@ const chunkSize = chunkSizeMB * 1024 * 1024;
 const concurrentUploads = 5;
 
 
-async function initUpload(file: File, fileSize: number, chunkSize: number): Promise<UploadInitResponse> {
+async function initUpload(filename: string, fileSize: number, chunkSize: number): Promise<UploadInitResponse> {
   uploadController = new AbortController();
-
-  const filename = encodeURIComponent(file.name);
   const url = `${apiBaseUrl}/upload/init?filename=${filename}&file_size=${fileSize}&chunk_size=${chunkSize}`;
 
   const initResponse = await fetch(url, {
@@ -386,32 +385,11 @@ async function cancelUpload(sessionId: string): Promise<UploadCancelResponse> {
 }
 
 
-async function processAndUploadChunk(sessionId: string, file: File, chunkIndex: number, chunkSize: number): Promise<UploadChunkResponse> {
-  const startByte = chunkIndex * chunkSize * 2;
-  const endByte = Math.min(startByte + chunkSize * 2, file.size);
-  const blobSlice = file.slice(startByte, endByte);
-  const readBuffer = await blobSlice.arrayBuffer();
-  const processedBuffer = new Uint8Array(readBuffer.byteLength / 2);
-
-  for (let i = 0, j = 0; i < readBuffer.byteLength; i += 2, j++) {
-    processedBuffer[j] = new Uint8Array(readBuffer)[i] || 0;
-  }
-
-  return await uploadChunk(sessionId, chunkIndex, processedBuffer.buffer);
-}
-
-
-async function upload() {
-  if (!canUploadFiles.value) return;
-
-  const file = imageFiles.value.find(file => file.name.endsWith('.bil'));
-  if (!file) return;
-
-  // Process file: take only even-positionned bytes
-  const uploadSize = file.size / 2;
+async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
+  const uploadSize = buffer.byteLength;
 
   try {
-    const { sessionId, totalChunks } = await initUpload(file, uploadSize, chunkSize);
+    const { sessionId, totalChunks } = await initUpload(filename, uploadSize, chunkSize);
     uploading.value = true;
     sessionIdRef.value = sessionId;
     console.log(`Upload initialized with session ID: ${sessionId}, total chunks: ${totalChunks}`);
@@ -425,7 +403,7 @@ async function upload() {
           break;
         }
 
-        await processAndUploadChunk(sessionId, file, chunkIndex, chunkSize);
+        await uploadChunk(sessionId, chunkIndex, buffer);
         completedChunks++;
         uploadProgress.value = completedChunks / totalChunks;
         console.log(`Uploaded chunk ${chunkIndex + 1}/${totalChunks}, progress: ${100 * uploadProgress.value}%`);
@@ -449,6 +427,40 @@ async function upload() {
     sessionIdRef.value = null;
     uploadProgress.value = 0;
     uploadController = null;
+  }
+}
+
+
+async function uploadHeader(image: EnviImage) {
+  const readBuffer = await image.headerFile.arrayBuffer();
+  const filename = encodeURIComponent(image.headerFile.name);
+  uploadBuffer(readBuffer, filename);
+}
+
+
+async function uploadImage(image: EnviImage) {
+  let selectedChannels: number[];
+
+  if (selectedWavelengths.value.length > 0) {
+    selectedChannels = selectedWavelengths.value.map(wavelength => image.headerData["wavelength"]?.indexOf(wavelength) || -1);
+  } else {
+    selectedChannels = selectedBands.value.map(bandName => image.headerData["band names"]?.indexOf(bandName) || -1);
+  }
+
+  const readBuffer = (await image.getBilData(selectedChannels)).buffer as ArrayBuffer;
+  const filename = encodeURIComponent(image.bilFile.name);
+  uploadBuffer(readBuffer, filename);
+}
+
+
+async function upload() {
+  if (!enviImagesStore.images) {
+    return;
+  }
+
+  for (const image of Object.values(enviImagesStore.images)) {
+    uploadHeader(image);
+    uploadImage(image)
   }
 }
 

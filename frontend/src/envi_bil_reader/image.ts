@@ -161,7 +161,7 @@ export class EnviImage {
 
         for (let i = 0; i < outputShape[0]; i++) {
           for (let c = 0; c < selectedBandsCount; c++) {
-            const channel = channels[c];
+            const channel = channels[c] as number;
             const startByte =
               (i * fileStrides[0] + channel * fileStrides[2]) * dataType.byteSize;
             const endByte = startByte + n_bytes;
@@ -194,7 +194,7 @@ export class EnviImage {
 
         for (let i = 0; i < outputShape[0]; i++) {
           for (let c = 0; c < selectedBandsCount; c++) {
-            const channel = channels[c];
+            const channel = channels[c] as number;
 
             for (let j = 0; j < outputShape[1]; j++) {
               const startByte =
@@ -221,7 +221,7 @@ export class EnviImage {
         const n_bytes = lines * samples * dataType.byteSize;
 
         for (let c = 0; c < selectedBandsCount; c++) {
-          const channel = channels[c];
+          const channel = channels[c] as number;
           const startByte = channel * fileStrides[2] * dataType.byteSize;
           const endByte = startByte + n_bytes;
 

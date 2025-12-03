@@ -1,3 +1,6 @@
+import type { BilDataType } from './models';
+
+
 export class EnviError extends Error {
   constructor(message: string) {
     super(message);
@@ -20,6 +23,21 @@ export class EnviBilError extends EnviError {
     this.name = 'EnviBilError';
   }
 }
+
+
+const BilDataTypes: Record<number, BilDataType> = {
+  1: { name: 'Uint8', byteSize: 1 },
+  2: { name: 'Int16', byteSize: 2 },
+  3: { name: 'Int32', byteSize: 4 },
+  4: { name: 'Float', byteSize: 4 },
+  5: { name: 'Double', byteSize: 8 },
+  6: { name: 'ComplexFloat', byteSize: 8 },
+  9: { name: 'ComplexDouble', byteSize: 16 },
+  12: { name: 'Uint16', byteSize: 2 },
+  13: { name: 'Uint32', byteSize: 4 },
+  14: { name: 'Int64', byteSize: 8 },
+  15: { name: 'Uint64', byteSize: 8 },
+};
 
 
 export class EnviImage {
@@ -85,6 +103,154 @@ export class EnviImage {
     return data;
   }
 
-  async getBilData<T>(channels: number[], chunkIndex: number, chunkSize: number): Promise<T> {
+  async getBilData(channels: number[]): Promise<Uint8Array> {
+    await this.loading;
+    const lines = parseInt(this.headerData['lines'] as string);
+    const samples = parseInt(this.headerData['samples'] as string);
+    const bands = parseInt(this.headerData['bands'] as string);
+
+    if (isNaN(lines) || isNaN(samples) || isNaN(bands)) {
+      throw new EnviBilError('Header file is missing required dimension information (lines, samples, bands).');
+    }
+
+    if (channels.some(c => c < 0 || c >= bands)) {
+      throw new EnviBilError('Requested channel index out of bounds.');
+    }
+
+    const selectedBandsCount = channels.length;
+    const outputShape: [number, number, number] = [lines, samples, selectedBandsCount];
+
+    const interleave = this.headerData['interleave'] as string;
+    let fileStrides: [number, number, number];
+    const outputStride: [number, number, number] = [samples * selectedBandsCount, 1, samples];
+
+    switch (interleave) {
+      case "bil":
+        fileStrides = [samples * bands, 1, samples];
+        break;
+
+      case "bip":
+        fileStrides = [samples * bands, bands, 1];
+        break;
+
+      case "bsq":
+        fileStrides = [samples, 1, lines * samples];
+        break;
+
+      default:
+        throw new EnviBilError(`Unsupported interleave format: ${interleave}`);
+    }
+
+    const dataTypeCode = parseInt(this.headerData['data type'] as string);
+    const dataType = BilDataTypes[dataTypeCode];
+    if (!dataType) {
+      throw new EnviBilError(`Unsupported data type code: ${dataTypeCode}`);
+    }
+    if (this.bilFile.size % dataType.byteSize !== 0) {
+      throw new EnviBilError('BIL file size is not aligned with data type byte size.');
+    }
+    if (this.bilFile.size / dataType.byteSize !== lines * samples * bands) {
+      throw new EnviBilError('BIL file size does not match header specifications.');
+    }
+
+    const outputBuffer = new Uint8Array(lines * samples * selectedBandsCount * dataType.byteSize);
+
+    switch (interleave) {
+      case "bil": {
+        const n_bytes = samples * dataType.byteSize;
+
+        for (let i = 0; i < outputShape[0]; i++) {
+          for (let c = 0; c < selectedBandsCount; c++) {
+            const channel = channels[c];
+            const startByte =
+              (i * fileStrides[0] + channel * fileStrides[2]) * dataType.byteSize;
+            const endByte = startByte + n_bytes;
+
+            const slice = this.bilFile.slice(startByte, endByte);
+            const buffer = new Uint8Array(await slice.arrayBuffer());
+
+            for (let j = 0; j < outputShape[1]; j++) {
+              const outputStartByte =
+                (i * outputStride[0] + j * outputStride[1] + c * outputStride[2]) *
+                dataType.byteSize;
+
+              const sourceStart = j * fileStrides[1] * dataType.byteSize;
+
+              const view = new Uint8Array(
+                buffer.buffer,
+                buffer.byteOffset + sourceStart,
+                dataType.byteSize
+              );
+
+              outputBuffer.set(view, outputStartByte);
+            }
+          }
+        }
+        break;
+      }
+
+      case "bip": {
+        const n_bytes = dataType.byteSize;
+
+        for (let i = 0; i < outputShape[0]; i++) {
+          for (let c = 0; c < selectedBandsCount; c++) {
+            const channel = channels[c];
+
+            for (let j = 0; j < outputShape[1]; j++) {
+              const startByte =
+                (i * fileStrides[0] + j * fileStrides[1] + channel * fileStrides[2]) *
+                dataType.byteSize;
+              const endByte = startByte + n_bytes;
+
+              const slice = this.bilFile.slice(startByte, endByte);
+              const buffer = new Uint8Array(await slice.arrayBuffer());
+
+              const outputStartByte =
+                (i * outputStride[0] + j * outputStride[1] + c * outputStride[2]) *
+                dataType.byteSize;
+
+              const view = new Uint8Array(buffer.buffer, buffer.byteOffset, dataType.byteSize);
+              outputBuffer.set(view, outputStartByte);
+            }
+          }
+        }
+        break;
+      }
+
+      case "bsq": {
+        const n_bytes = lines * samples * dataType.byteSize;
+
+        for (let c = 0; c < selectedBandsCount; c++) {
+          const channel = channels[c];
+          const startByte = channel * fileStrides[2] * dataType.byteSize;
+          const endByte = startByte + n_bytes;
+
+          const slice = this.bilFile.slice(startByte, endByte);
+          const buffer = new Uint8Array(await slice.arrayBuffer());
+
+          for (let i = 0; i < outputShape[0]; i++) {
+            for (let j = 0; j < outputShape[1]; j++) {
+              const sourceStart =
+                (i * fileStrides[0] + j * fileStrides[1]) * dataType.byteSize;
+
+              const outputStartByte =
+                (i * outputStride[0] + j * outputStride[1] + c * outputStride[2]) *
+                dataType.byteSize;
+
+              const view = new Uint8Array(
+                buffer.buffer,
+                buffer.byteOffset + sourceStart,
+                dataType.byteSize
+              );
+
+              outputBuffer.set(view, outputStartByte);
+            }
+          }
+        }
+        break;
+      }
+    }
+
+    return outputBuffer;
   }
 }

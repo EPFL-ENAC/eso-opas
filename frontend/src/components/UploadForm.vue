@@ -165,7 +165,8 @@
 </template>
 
 <script setup lang="ts">
-import type { UploadInitResponse, UploadChunkResponse, UploadFinalizeResponse, UploadCancelResponse } from 'src/models';
+import { Notify } from 'quasar'; // Import Quasar Notify
+import type { UploadInitResponse } from 'src/models';
 import type { EnviImage } from '../envi_bil_reader/image';
 import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
@@ -210,7 +211,7 @@ const filesSelectionIsValid = computed(() => {
 });
 
 
-watch(headerFiles, async () => {
+watch(files, async () => {
   if (filesSelectionIsValid.value) {
     enviImagesStore.loadData(headerFiles.value, imageFiles.value);
   } else {
@@ -226,7 +227,7 @@ const headerColumns = [
 
 
 const headerRows = computed(() => {
-  if (!enviImagesStore.images) {
+  if (!enviImagesStore.images || enviImagesStore.loading) {
     return [];
   }
   const firstImage = Object.values(enviImagesStore.images)[0];
@@ -277,14 +278,12 @@ const canUploadFiles = computed(() => {
 });
 
 
-const chunkSizeMB = 10;
-const chunkSize = chunkSizeMB * 1024 * 1024;
 const concurrentUploads = 5;
 
 
-async function initUpload(filename: string, fileSize: number, chunkSize: number): Promise<UploadInitResponse> {
+async function initSession(): Promise<UploadInitResponse> {
   uploadController = new AbortController();
-  const url = `${apiBaseUrl}/upload/init?filename=${filename}&file_size=${fileSize}&chunk_size=${chunkSize}`;
+  const url = `${apiBaseUrl}/upload/init`;
 
   const initResponse = await fetch(url, {
     method: 'POST',
@@ -299,134 +298,36 @@ async function initUpload(filename: string, fileSize: number, chunkSize: number)
   const data = await initResponse.json();
   return {
     sessionId: data.session_id,
-    totalChunks: data.total_chunks,
   }
-}
-
-
-async function uploadChunk(sessionId: string, chunkIndex: number, chunkData: ArrayBuffer): Promise<UploadChunkResponse> {
-  if (!uploadController) {
-    throw 'Upload controller not initialized';
-  }
-
-  const url = `${apiBaseUrl}/upload/chunk/${sessionId}?chunk_index=${chunkIndex}`;
-  const formData = new FormData();
-  formData.append('file', new Blob([chunkData]));
-
-  const chunkResponse = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'accept': 'application/json',
-    },
-    body: formData,
-    signal: uploadController.signal,
-  });
-
-  if (!chunkResponse.ok) {
-    throw `Failed to upload chunk ${chunkIndex}: ${chunkResponse.statusText}`;
-  }
-
-  const data = await chunkResponse.json();
-  return {
-    progress: data.progress,
-    isComplete: data.complete,
-  };
-}
-
-
-async function finalizeUpload(sessionId: string): Promise<UploadFinalizeResponse> {
-  if (!uploadController) {
-    throw 'Upload controller not initialized';
-  }
-
-  const url = `${apiBaseUrl}/upload/finalize/${sessionId}`;
-
-  const finalizeResponse = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: uploadController.signal,
-  });
-
-  if (!finalizeResponse.ok) {
-    throw `Failed to finalize upload: ${finalizeResponse.statusText}`;
-  }
-
-  const data = await finalizeResponse.json();
-  return {
-    filename: data.filename,
-    filepath: data.filepath,
-    fileSize: data.file_size,
-    chunksReceived: data.chunks_received,
-  };
-}
-
-
-async function cancelUpload(sessionId: string): Promise<UploadCancelResponse> {
-  if (!uploadController) {
-    throw 'Upload controller not initialized';
-  }
-
-  const url = `${apiBaseUrl}/upload/cancel/${sessionId}`;
-
-  const cancelResponse = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: uploadController.signal,
-  });
-
-  if (!cancelResponse.ok) {
-    throw `Failed to cancel upload: ${cancelResponse.statusText}`;
-  }
-
-  const data = await cancelResponse.json();
-  return {
-    detail: data.message,
-  };
 }
 
 
 async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
-  const uploadSize = buffer.byteLength;
-
   try {
-    const { sessionId, totalChunks } = await initUpload(filename, uploadSize, chunkSize);
-    uploading.value = true;
-    sessionIdRef.value = sessionId;
-    console.log(`Upload initialized with session ID: ${sessionId}, total chunks: ${totalChunks}`);
-
-    let nextChunkIndex = 0;
-    let completedChunks = 0;
-    const worker = async (): Promise<void> => {
-      while (true) {
-        const chunkIndex = nextChunkIndex++;
-        if (chunkIndex >= totalChunks || !uploading.value) {
-          break;
-        }
-
-        await uploadChunk(sessionId, chunkIndex, buffer);
-        completedChunks++;
-        uploadProgress.value = completedChunks / totalChunks;
-        console.log(`Uploaded chunk ${chunkIndex + 1}/${totalChunks}, progress: ${100 * uploadProgress.value}%`);
-      }
+    if (!uploadController) {
+      throw 'Upload controller not initialized';
     }
 
-    const workers: Promise<void>[] = [];
-    for (let i = 0; i < concurrentUploads; i++) {
-      workers.push(worker());
-    }
-    await Promise.all(workers);
+    const url = `${apiBaseUrl}/upload/?session_id=${sessionIdRef.value}&filename=${filename}`;
+    const formData = new FormData();
+    formData.append('file', new Blob([buffer]));
 
-    const finalizeResponse = await finalizeUpload(sessionId);
-    console.log('Upload finalized:', finalizeResponse);
+    const uploadResponse = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+      },
+      body: formData,
+      signal: uploadController.signal,
+    });
+
+    if (!uploadResponse.ok) {
+      throw `Failed to upload file ${filename}: ${uploadResponse.statusText}`;
+    }
 
   } catch (error) {
     console.error('Upload failed:', error);
     return;
-  } finally {
-    uploading.value = false;
-    sessionIdRef.value = null;
-    uploadProgress.value = 0;
-    uploadController = null;
   }
 }
 
@@ -458,10 +359,54 @@ async function upload() {
     return;
   }
 
-  for (const image of Object.values(enviImagesStore.images)) {
-    uploadHeader(image);
-    uploadImage(image)
+  try {
+    const { sessionId } = await initSession();
+    uploading.value = true;
+    sessionIdRef.value = sessionId;
+    console.log(`Upload initialized with session ID: ${sessionId}`);
+
+  } catch (error) {
+    console.error('Failed to initialize upload session:', error);
+    uploading.value = false;
+    sessionIdRef.value = null;
+
+    Notify.create({
+      type: 'negative',
+      message: 'Failed to initialize upload session!',
+      position: 'top',
+      timeout: 3000
+    });
+
+    return;
   }
+
+  uploading.value = true;
+  uploadProgress.value = 0;
+
+  const numImages = Object.keys(enviImagesStore.images).length;
+  let uploadedImages = 0;
+  const promises: Promise<void>[] = [];
+
+  for (const image of Object.values(enviImagesStore.images)) {
+    promises.push(uploadHeader(image));
+    promises.push(uploadImage(image).then(() => {
+      uploadedImages += 1;
+      uploadProgress.value = uploadedImages / numImages;
+    }));
+  }
+
+  await Promise.all(promises);
+
+  uploading.value = false;
+  sessionIdRef.value = null;
+  uploadController = null;
+
+  Notify.create({
+    type: 'positive',
+    message: 'Upload completed successfully!',
+    position: 'top',
+    timeout: 3000
+  });
 }
 
 
@@ -469,17 +414,12 @@ async function cancel() {
   if (!sessionIdRef.value) {
     return;
   }
-  try {
-    const cancelResponse = await cancelUpload(sessionIdRef.value);
-    console.log('Upload cancelled:', cancelResponse);
-  } catch (error) {
-    console.error('Failed to cancel upload:', error);
-  } finally {
-    uploading.value = false;
-    sessionIdRef.value = null;
-    uploadProgress.value = 0;
-    uploadController = null;
-  }
+
+  uploadController?.abort();
+  uploadController = null;
+  uploading.value = false;
+  sessionIdRef.value = null;
+  uploadProgress.value = 0;
 }
 
 

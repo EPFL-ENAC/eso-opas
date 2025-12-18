@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { EnviImage } from '../envi_bil_reader/image';
+import { EnviImage } from '../envi_image_reader/image';
 
 
 export const useEnviImagesStore = defineStore('enviImages', () => {
@@ -68,7 +68,7 @@ export const useEnviImagesStore = defineStore('enviImages', () => {
     return set ? Array.from(set) : null;
   }
 
-  const bandNames = computed(() => getHeaderIntersectionListValue('band names'));
+  const bandNames = computed(() => getHeaderIntersectionListValue('band_names'));
   const wavelengths = computed(() => getHeaderIntersectionListValue('wavelength'));
 
   // const lines: ComputedRef<number | null> = getDataValue<number>('lines');
@@ -76,7 +76,7 @@ export const useEnviImagesStore = defineStore('enviImages', () => {
   // const bands: ComputedRef<number | null> = getDataValue<number>('bands');
 
   // const bandNames: ComputedRef<string[]> = computed(() => {
-  //   if (!data.value || !data.value['band names']) {
+  //   if (!data.value || !data.value['band_names']) {
   //     return [];
   //   }
   //   return data.value['band names'].slice(1, -1).split(',').map(b => b.trim());

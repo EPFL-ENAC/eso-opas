@@ -1,6 +1,10 @@
 import type { BilDataType } from './models';
 
 
+export const SUPPORTED_IMAGE_EXTENSIONS = ['.bil', '.biq', '.bsq'];
+export const SUPPORTED_HEADER_EXTENSIONS = ['.hdr'];
+
+
 export class EnviError extends Error {
   constructor(message: string) {
     super(message);
@@ -47,11 +51,11 @@ export class EnviImage {
   loading: Promise<void>;
 
   constructor(headerFile: File, bilFile: File) {
-    if (!headerFile.name.toLowerCase().endsWith('.hdr')) {
-      throw new EnviHeaderError('Header file must have a .hdr extension.');
+    if (!SUPPORTED_HEADER_EXTENSIONS.some(ext => headerFile.name.toLowerCase().endsWith(ext))) {
+      throw new EnviHeaderError(`Header file must have a ${SUPPORTED_HEADER_EXTENSIONS.join('/')} extension.`);
     }
-    if (!bilFile.name.toLowerCase().endsWith('.bil')) {
-      throw new EnviBilError('BIL file must have a .bil extension.');
+    if (!SUPPORTED_IMAGE_EXTENSIONS.some(ext => bilFile.name.toLowerCase().endsWith(ext))) {
+      throw new EnviBilError(`BIL file must have a ${SUPPORTED_IMAGE_EXTENSIONS.join('/')} extension.`);
     }
     if (headerFile.name.slice(0, -4) !== bilFile.name.slice(0, -4)) {
       throw new EnviError('Header file and BIL file names do not match.');
@@ -83,12 +87,24 @@ export class EnviImage {
         throw new EnviHeaderError('Invalid header file format. Should start with "ENVI".');
       }
 
-      for (const line of lines.slice(1)) {
+      for (let i = 1; i < lines.length; i++) {
+        const line = (lines[i] as string).trim();
         const splitIndex = line.indexOf('=');
-        const key = line.slice(0, splitIndex).trim();
-        const value = line.slice(splitIndex + 1).trim();
+        if (splitIndex === -1) {
+          continue;
+        }
 
-        if (value[0] === '{' && value[value.length - 1] === '}') {
+        const key = line.slice(0, splitIndex).trim().replace(" ", "_").toLowerCase();
+        let value = line.slice(splitIndex + 1).trim();
+
+        if (value[0] === '{') {
+          while (!value.endsWith('}')) {
+            i++;
+            if (i >= lines.length) {
+              throw new EnviHeaderError(`Unterminated list for key "${key}" in header file.`);
+            }
+            value += (lines[i] as string).trim();
+          }
           const values = value.slice(1, -1).split(',').map(v => v.trim());
           data[key] = values;
           continue;

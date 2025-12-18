@@ -12,8 +12,8 @@
         :done="step > 1"
       >
         <q-file
-          label="Select HDR and BIL files"
-          accept=".hdr,.bil"
+          :label="`Select ${SUPPORTED_IMAGE_EXTENSIONS.join('/')} and ${SUPPORTED_HEADER_EXTENSIONS.join('/')} files`"
+          :accept="[...SUPPORTED_IMAGE_EXTENSIONS, ...SUPPORTED_HEADER_EXTENSIONS].join(',')"
           multiple
           v-model="files"
         >
@@ -62,7 +62,8 @@
           <template v-slot:avatar>
             <q-icon name="info" color="black" />
           </template>
-          Please select at least one BIL file and its corresponding HDR file(s).
+          Please select at least one {{ SUPPORTED_IMAGE_EXTENSIONS.join('/') }} file and its corresponding {{
+            SUPPORTED_HEADER_EXTENSIONS.join('/') }} header file.
         </q-banner>
       </q-step>
 
@@ -167,7 +168,8 @@
 <script setup lang="ts">
 import { Notify } from 'quasar'; // Import Quasar Notify
 import type { UploadInitResponse } from 'src/models';
-import type { EnviImage } from '../envi_bil_reader/image';
+import type { EnviImage } from '../envi_image_reader/image';
+import { SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_HEADER_EXTENSIONS } from '../envi_image_reader/image';
 import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
 const step = ref(1);
@@ -182,11 +184,11 @@ let uploadController: AbortController | null = null;
 
 
 const headerFiles = computed(() => {
-  return files.value.filter(file => file.name.endsWith('.hdr'));
+  return files.value.filter(file => SUPPORTED_HEADER_EXTENSIONS.some(ext => file.name.endsWith(ext)));
 });
 
 const imageFiles = computed(() => {
-  return files.value.filter(file => file.name.endsWith('.bil'));
+  return files.value.filter(file => SUPPORTED_IMAGE_EXTENSIONS.some(ext => file.name.endsWith(ext)));
 });
 
 const filesSelectionIsValid = computed(() => {
@@ -199,9 +201,8 @@ const filesSelectionIsValid = computed(() => {
   }
 
   for (const headerFile of headerFiles.value) {
-    const baseName = headerFile.name.slice(0, -4);
-    const imageName = `${baseName}.bil`;
-    const matchingImageFile = imageFiles.value.find(file => file.name === imageName);
+    const baseName = headerFile.name.split('.').slice(0, -1).join('.');
+    const matchingImageFile = imageFiles.value.find(file => file.name.startsWith(baseName));
     if (!matchingImageFile) {
       return false;
     }
@@ -270,11 +271,10 @@ function bandNamesFilterFn(val: string, update: (callback: () => void) => void) 
 
 
 const canUploadFiles = computed(() => {
-  const hasHeader = enviImagesStore.images !== null;
-  const hasBil = imageFiles.value.some(file => file.name.endsWith('.bil'));
+  const hasImages = enviImagesStore.images !== null;
   const hasWavelengths = selectedWavelengths.value.length > 0;
   const hasBands = selectedBands.value.length > 0;
-  return hasBil && hasHeader && (hasWavelengths || hasBands) && !uploading.value;
+  return hasImages && (hasWavelengths || hasBands) && !uploading.value;
 });
 
 
@@ -345,7 +345,7 @@ async function uploadImage(image: EnviImage) {
   if (selectedWavelengths.value.length > 0) {
     selectedChannels = selectedWavelengths.value.map(wavelength => image.headerData["wavelength"]?.indexOf(wavelength) || -1);
   } else {
-    selectedChannels = selectedBands.value.map(bandName => image.headerData["band names"]?.indexOf(bandName) || -1);
+    selectedChannels = selectedBands.value.map(bandName => image.headerData["band_names"]?.indexOf(bandName) || -1);
   }
 
   const readBuffer = (await image.getBilData(selectedChannels)).buffer as ArrayBuffer;

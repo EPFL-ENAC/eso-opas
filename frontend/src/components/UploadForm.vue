@@ -348,9 +348,15 @@ async function uploadImage(image: EnviImage) {
   let selectedChannels: number[];
 
   if (selectedWavelengths.value.length > 0) {
-    selectedChannels = selectedWavelengths.value.map(wavelength => image.headerData["wavelength"]?.indexOf(wavelength) || -1);
+    selectedChannels = selectedWavelengths.value.map(wavelength => {
+      const idx = image.headerData["wavelength"]?.indexOf(wavelength);
+      return idx !== undefined ? idx : -1;
+    });
   } else {
-    selectedChannels = selectedBands.value.map(bandName => image.headerData["band_names"]?.indexOf(bandName) || -1);
+    selectedChannels = selectedBands.value.map(bandName => {
+      const idx = image.headerData["band_names"]?.indexOf(bandName);
+      return idx !== undefined ? idx : -1;
+    });
   }
 
   const readBuffer = (await image.getBilData(selectedChannels)).buffer as ArrayBuffer;

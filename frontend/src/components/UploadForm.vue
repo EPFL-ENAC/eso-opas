@@ -12,13 +12,19 @@
         :done="step > 1"
       >
         <q-file
-          :label="`Select ${SUPPORTED_IMAGE_EXTENSIONS.join('/')} and ${SUPPORTED_HEADER_EXTENSIONS.join('/')} files`"
+          :label="`Drag and drop or select ${SUPPORTED_IMAGE_EXTENSIONS.join('/')} and ${SUPPORTED_HEADER_EXTENSIONS.join('/')} files`"
           :accept="[...SUPPORTED_IMAGE_EXTENSIONS, ...SUPPORTED_HEADER_EXTENSIONS].join(',')"
-          multiple
+          hint="Files will be processed locally before upload."
           v-model="files"
+          multiple
+          append
+          use-chips
+          clearable
+          counter
+          outlined
         >
           <template v-slot:prepend>
-            <q-icon name="attach_file" />
+            <q-icon name="cloud_upload" />
           </template>
         </q-file>
 
@@ -104,7 +110,7 @@
         />
 
         <q-stepper-navigation
-          v-if="selectedWavelengths.length > 0 || selectedBands.length > 0"
+          v-if="selectedWavelengths?.length > 0 || selectedBands?.length > 0"
         >
           <q-btn
             @click="step = 3"
@@ -174,7 +180,7 @@ import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
 const step = ref(1);
 const enviImagesStore = useEnviImagesStore();
-const files = ref<File[]>([]);
+const files = ref<File[] | null>(null);
 const selectedWavelengths = ref<string[]>([]);
 const selectedBands = ref<string[]>([]);
 const uploading = ref(false);
@@ -184,15 +190,15 @@ let uploadController: AbortController | null = null;
 
 
 const headerFiles = computed(() => {
-  return files.value.filter(file => SUPPORTED_HEADER_EXTENSIONS.some(ext => file.name.endsWith(ext)));
+  return files.value?.filter(file => SUPPORTED_HEADER_EXTENSIONS.some(ext => file.name.endsWith(ext))) || [];
 });
 
 const imageFiles = computed(() => {
-  return files.value.filter(file => SUPPORTED_IMAGE_EXTENSIONS.some(ext => file.name.endsWith(ext)));
+  return files.value?.filter(file => SUPPORTED_IMAGE_EXTENSIONS.some(ext => file.name.endsWith(ext))) || [];
 });
 
 const filesSelectionIsValid = computed(() => {
-  if (headerFiles.value.length === 0) {
+  if (!headerFiles.value || headerFiles.value.length === 0) {
     return false;
   }
 
@@ -218,6 +224,8 @@ watch(files, async () => {
   } else {
     enviImagesStore.clearData();
   }
+  selectedWavelengths.value = [];
+  selectedBands.value = [];
 })
 
 
@@ -276,9 +284,6 @@ const canUploadFiles = computed(() => {
   const hasBands = selectedBands.value.length > 0;
   return hasImages && (hasWavelengths || hasBands) && !uploading.value;
 });
-
-
-const concurrentUploads = 5;
 
 
 async function initSession(): Promise<UploadInitResponse> {

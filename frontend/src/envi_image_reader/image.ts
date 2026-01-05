@@ -72,6 +72,7 @@ export class EnviImage {
     });
   }
 
+  /** Loads information contained in the .hdr file. Spases in keys are replaced with underscores. */
   private async loadHeaderData(): Promise<Record<string, string | string[]>> {
     const data: Record<string, string | string[]> = {};
 
@@ -111,6 +112,16 @@ export class EnviImage {
         }
 
         data[key] = value;
+      }
+
+      if ("bands" in data) {
+        const bands = parseInt(data["bands"] as string);
+        if ("band_names" in data && data["band_names"].length !== bands) {
+          throw new EnviHeaderError('Number of band names does not match the specified number of bands.');
+        }
+        if ("wavelength" in data && data["wavelength"].length !== bands) {
+          throw new EnviHeaderError('Number of wavelengths does not match the specified number of bands.');
+        }
       }
     } catch (e) {
       throw new EnviHeaderError(`Failed to read header file: ${e}`);
@@ -157,7 +168,7 @@ export class EnviImage {
         throw new EnviBilError(`Unsupported interleave format: ${interleave}`);
     }
 
-    const dataTypeCode = parseInt(this.headerData['data type'] as string);
+    const dataTypeCode = parseInt(this.headerData['data_type'] as string);
     const dataType = BilDataTypes[dataTypeCode];
     if (!dataType) {
       throw new EnviBilError(`Unsupported data type code: ${dataTypeCode}`);

@@ -1,3 +1,5 @@
+.PHONY: install lint run-backend run-frontend dev test
+
 install:
 	uvx pre-commit install
 	cd backend && make install
@@ -13,6 +15,9 @@ run-backend:
 
 run-frontend:
 	cd frontend && npm run dev
+
+dev:
+	make -j2 run-backend run-frontend
 
 test:
 	cd backend && make test

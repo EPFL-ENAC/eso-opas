@@ -139,6 +139,30 @@
         icon="cloud_upload"
         :done="step > 3"
       >
+        <q-linear-progress
+          :value="uploadStats.progress"
+          color="primary"
+          class="q-mt-md"
+          size="25px"
+          :animation-speed="200"
+        >
+          <div v-if="uploadStats.progressStr" class="absolute-full flex flex-center">
+            <q-badge color="white" text-color="primary" :label="uploadStats.progressStr" />
+          </div>
+        </q-linear-progress>
+
+        <div class="text-caption text-grey-8 q-mt-sm">
+          <div>
+            <strong>Processing speed:</strong> {{ uploadStats.processSpeedStr }}
+          </div>
+          <div>
+            <strong>Upload speed:</strong> {{ uploadStats.uploadSpeedStr }}
+          </div>
+          <div>
+            <strong>ETA:</strong> {{ uploadStats.estimatedTimeRemainingStr }}
+          </div>
+        </div>
+
         <q-btn
           v-if="enviImagesStore.images && !uploading"
           label="Upload"
@@ -153,14 +177,6 @@
           class="q-mt-md"
           v-if="uploading"
           @click="cancel"
-        />
-
-        <q-linear-progress
-          v-if="uploading"
-          :value="uploadProgress"
-          color="primary"
-          class="q-mt-md"
-          :animation-speed="200"
         />
 
         <q-stepper-navigation>
@@ -184,9 +200,78 @@ const files = ref<File[] | null>(null);
 const selectedWavelengths = ref<string[]>([]);
 const selectedBands = ref<string[]>([]);
 const uploading = ref(false);
-const uploadProgress = ref(0);
 const sessionIdRef = ref<string | null>(null);
 let uploadController: AbortController | null = null;
+let etaInterval: ReturnType<typeof setInterval> | null = null;
+
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+
+const uploadStats = reactive({
+  totalProcessedBytes: 0,
+  totalUploadedBytes: 0,
+  totalFiles: 0,
+  processTime: 0,
+  processedBytes: 0,
+  uploadTime: 0,
+  uploadedBytes: 0,
+  uploadedFiles: 0,
+  get progress() {
+    return this.totalFiles > 0
+      ? this.uploadedFiles / this.totalFiles
+      : 0
+  },
+  get progressStr() {
+    return this.totalFiles > 0
+      ? `${Math.round(this.progress * 100)}% (${this.uploadedFiles}/${this.totalFiles})`
+      : ""
+  },
+  get processSpeedStr() {
+    if (this.processTime === 0) {
+      return "-";
+    }
+    const speed = this.processedBytes / (this.processTime / 1000);
+    return `${formatBytes(speed)}/s`;
+  },
+  get uploadSpeedStr() {
+    if (this.uploadTime === 0) {
+      return "-";
+    }
+    const speed = this.uploadedBytes / (this.uploadTime / 1000);
+    return `${formatBytes(speed)}/s`;
+  },
+  get estimatedTimeRemainingStr() {
+    if (this.processedBytes === 0 || this.uploadedBytes === 0) {
+      return "-";
+    }
+    const processSpeed = this.processedBytes / (this.processTime / 1000);
+    const processRemainingBytes = this.totalProcessedBytes - this.processedBytes;
+    const uploadSpeed = this.uploadedBytes / (this.uploadTime / 1000);
+    const uploadRemainingBytes = this.totalUploadedBytes - this.uploadedBytes;
+    const estimatedTimeRemaining = processRemainingBytes / processSpeed + uploadRemainingBytes / uploadSpeed;
+    const minutes = Math.floor(estimatedTimeRemaining / 60);
+    const seconds = Math.floor(estimatedTimeRemaining % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  },
+
+  reset() {
+    this.totalProcessedBytes = 0;
+    this.totalUploadedBytes = 0;
+    this.totalFiles = 0;
+    this.processTime = 0;
+    this.processedBytes = 0;
+    this.uploadTime = 0;
+    this.uploadedBytes = 0;
+    this.uploadedFiles = 0;
+  }
+});
 
 
 const headerFiles = computed(() => {
@@ -226,6 +311,7 @@ watch(files, async () => {
   }
   selectedWavelengths.value = [];
   selectedBands.value = [];
+  uploadStats.reset();
 })
 
 
@@ -252,7 +338,7 @@ const headerRows = computed(() => {
 
 const wavelengthsOptions = ref<string[]>([]);
 watch(() => enviImagesStore.wavelengths, (newWavelengths) => {
-  wavelengthsOptions.value = newWavelengths || []
+  wavelengthsOptions.value = newWavelengths || [];
 }, { immediate: true });
 
 
@@ -308,6 +394,9 @@ async function initSession(): Promise<UploadInitResponse> {
 
 
 async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
+  const startTime = performance.now();
+  uploadStats.totalUploadedBytes += buffer.byteLength;
+
   try {
     if (!uploadController) {
       throw 'Upload controller not initialized';
@@ -333,6 +422,10 @@ async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
   } catch (error) {
     console.error('Upload failed:', error);
     return;
+  } finally {
+    uploadStats.uploadedFiles += 1;
+    uploadStats.uploadedBytes += buffer.byteLength;
+    uploadStats.uploadTime += performance.now() - startTime;
   }
 }
 
@@ -345,6 +438,9 @@ async function uploadHeader(image: EnviImage) {
 
 
 async function uploadImage(image: EnviImage) {
+  const startTime = performance.now();
+  uploadStats.totalProcessedBytes += image.bilFile.size;
+
   let selectedChannels: number[];
 
   if (selectedWavelengths.value.length > 0) {
@@ -360,6 +456,9 @@ async function uploadImage(image: EnviImage) {
   }
 
   const readBuffer = (await image.getBilData(selectedChannels)).buffer as ArrayBuffer;
+  uploadStats.processedBytes += image.bilFile.size;
+  uploadStats.processTime += performance.now() - startTime;
+
   const filename = encodeURIComponent(image.bilFile.name);
   uploadBuffer(readBuffer, filename);
 }
@@ -376,6 +475,12 @@ async function upload() {
     sessionIdRef.value = sessionId;
     console.log(`Upload initialized with session ID: ${sessionId}`);
 
+    if (!etaInterval) {
+    console.log('Starting ETA update interval');
+      etaInterval = setInterval(() => {
+        console.log(uploadStats.estimatedTimeRemainingStr);
+      }, 1000);
+    }
   } catch (error) {
     console.error('Failed to initialize upload session:', error);
     uploading.value = false;
@@ -392,21 +497,23 @@ async function upload() {
   }
 
   uploading.value = true;
-  uploadProgress.value = 0;
+  uploadStats.reset();
+  uploadStats.totalFiles = Object.keys(enviImagesStore.images).length * 2; // headers + images
 
-  const numImages = Object.keys(enviImagesStore.images).length;
-  let uploadedImages = 0;
   const promises: Promise<void>[] = [];
 
   for (const image of Object.values(enviImagesStore.images)) {
     promises.push(uploadHeader(image));
-    promises.push(uploadImage(image).then(() => {
-      uploadedImages += 1;
-      uploadProgress.value = uploadedImages / numImages;
-    }));
+    promises.push(uploadImage(image));
   }
 
   await Promise.all(promises);
+
+  // Stop ETA update interval
+  if (etaInterval) {
+    clearInterval(etaInterval);
+    etaInterval = null;
+  }
 
   uploading.value = false;
   sessionIdRef.value = null;
@@ -430,7 +537,11 @@ async function cancel() {
   uploadController = null;
   uploading.value = false;
   sessionIdRef.value = null;
-  uploadProgress.value = 0;
+
+  if (etaInterval) {
+    clearInterval(etaInterval);
+    etaInterval = null;
+  }
 }
 
 

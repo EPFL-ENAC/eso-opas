@@ -190,8 +190,8 @@
 <script setup lang="ts">
 import { Notify } from 'quasar'; // Import Quasar Notify
 import type { UploadInitResponse } from 'src/models';
-import type { EnviImage } from '../envi_image_reader/image';
-import { SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_HEADER_EXTENSIONS } from '../envi_image_reader/image';
+import type { EnviImage } from 'envi-image-reader/image';
+import { SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_HEADER_EXTENSIONS } from 'envi-image-reader/image';
 import { baseUrl as apiBaseUrl } from 'src/boot/api';
 
 const step = ref(1);
@@ -444,15 +444,13 @@ async function uploadImage(image: EnviImage) {
   let selectedChannels: number[];
 
   if (selectedWavelengths.value.length > 0) {
-    selectedChannels = selectedWavelengths.value.map(wavelength => {
-      const idx = image.headerData["wavelength"]?.indexOf(wavelength);
-      return idx !== undefined ? idx : -1;
-    });
+    selectedChannels = selectedWavelengths.value.map(wavelength =>
+      image.headerData["wavelength"]?.indexOf(wavelength) ?? -1
+    );
   } else {
-    selectedChannels = selectedBands.value.map(bandName => {
-      const idx = image.headerData["band_names"]?.indexOf(bandName);
-      return idx !== undefined ? idx : -1;
-    });
+    selectedChannels = selectedBands.value.map(bandName =>
+      image.headerData["band_names"]?.indexOf(bandName) ?? -1
+    );
   }
 
   const readBuffer = (await image.getBilData(selectedChannels)).buffer as ArrayBuffer;

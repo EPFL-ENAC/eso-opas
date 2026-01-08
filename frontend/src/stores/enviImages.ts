@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { EnviImage } from '../envi_image_reader/image';
+import { EnviImage } from 'envi-image-reader/image';
 
 
 export const useEnviImagesStore = defineStore('enviImages', () => {

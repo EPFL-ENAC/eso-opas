@@ -26,3 +26,11 @@ async def upload_file(session_id: str, filename: str, file: UploadFile) -> Uploa
 
     logger.info(f"Receiving file {filename} for session {session_id}.")
     return await upload.upload_file(session_id, filename, file)
+
+
+@router.get("/{session_id}/files")
+async def list_files(session_id: str) -> dict[str, list[str]]:
+    """List all uploaded files in a session."""
+
+    logger.info(f"Listing files for session {session_id}")
+    return await upload.list_session_files(session_id)

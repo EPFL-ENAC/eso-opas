@@ -18,15 +18,22 @@ Follow these instructions to run locally. First, run:
 make install
 ```
 
-Then, edit the `.env` file in the root directory of the repository with the following content (most fields must be left empty for local deployment):
+Then, edit the `.env` file in the root directory of the repository:
 
 ```env
 PATH_PREFIX=
+USE_K8S=false
 ```
 
 ### Backend
 
-In one shell, run:
+TIE detection runs locally via Docker. Build the detector image once before using it:
+
+```bash
+cd backend && make build-tie-detector
+```
+
+Then start the backend:
 
 ```bash
 make run-backend
@@ -43,3 +50,13 @@ make run-frontend
 ```
 
 The website will be available at [http://localhost:9000](http://localhost:9000).
+
+## Deploying the TIE detector image
+
+The TIE detector image is built and pushed manually (not by CI):
+
+```bash
+cd backend && make push-tie-detector TAG=dev
+```
+
+Copy the printed digest and update `overlays/dev/kustomization.yaml` in the [k8s config repo](https://github.com/EPFL-ENAC/enack8s-app-config).

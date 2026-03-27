@@ -9,6 +9,7 @@ from fastapi_cache.backends.inmemory import InMemoryBackend
 from pydantic import BaseModel
 
 from api.config import config
+from api.views.process import router as process_router
 from api.views.upload import router as upload_router
 
 basicConfig(level=INFO)
@@ -57,4 +58,9 @@ app.include_router(
     upload_router,
     prefix="/upload",
     tags=["Upload data"],
+)
+app.include_router(
+    process_router,
+    prefix="/process",
+    tags=["Process TIE detection"],
 )

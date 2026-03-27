@@ -17,6 +17,7 @@ dependencies = [
     "fastapi-cache2>=0.2.2",
     "aiofiles>=25.1.0",
     "python-multipart>=0.0.20",
+    "kubernetes>=32.0.0",
 ]
 
 [project.optional-dependencies]
@@ -24,10 +25,14 @@ dev = [
     "dotenv>=0.9.9",
     "pytest>=8.4.1",
     "python-dotenv[cli]>=1.1.1",
+    "docker>=7.1.0",
 ]
 test = [
     "pytest>=8.4.1",
 ]
+
+[tool.setuptools]
+packages = ["api"]
 
 [tool.ruff]
 line-length = 120

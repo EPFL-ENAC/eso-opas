@@ -1,16 +1,7 @@
 <template>
   <div>
-    <q-stepper
-      v-model="step"
-      vertical
-      animated
-    >
-      <q-step
-        :name="1"
-        title="Select files"
-        icon="attach_file"
-        :done="step > 1"
-      >
+    <q-stepper v-model="step" vertical animated>
+      <q-step :name="1" title="Select files" icon="attach_file" :done="step > 1">
         <q-file
           :label="`Drag and drop or select ${SUPPORTED_IMAGE_EXTENSIONS.join('/')} and ${SUPPORTED_HEADER_EXTENSIONS.join('/')} files`"
           :accept="[...SUPPORTED_IMAGE_EXTENSIONS, ...SUPPORTED_HEADER_EXTENSIONS].join(',')"
@@ -49,36 +40,20 @@
           dense
         />
 
-        <q-stepper-navigation
-          v-if="filesSelectionIsValid && enviImagesStore.images"
-        >
-          <q-btn
-            @click="step = 2"
-            label="Continue"
-            color="primary"
-          />
+        <q-stepper-navigation v-if="filesSelectionIsValid && enviImagesStore.images">
+          <q-btn @click="step = 2" label="Continue" color="primary" />
         </q-stepper-navigation>
 
-        <q-banner
-          v-else
-          class="q-mt-md bg-info text-black"
-          type="info"
-          dense
-        >
+        <q-banner v-else class="q-mt-md bg-info text-black" type="info" dense>
           <template v-slot:avatar>
             <q-icon name="info" color="black" />
           </template>
-          Please select at least one {{ SUPPORTED_IMAGE_EXTENSIONS.join('/') }} file and its corresponding {{
-            SUPPORTED_HEADER_EXTENSIONS.join('/') }} header file.
+          Please select at least one {{ SUPPORTED_IMAGE_EXTENSIONS.join('/') }} file and its
+          corresponding {{ SUPPORTED_HEADER_EXTENSIONS.join('/') }} header file.
         </q-banner>
       </q-step>
 
-      <q-step
-        :name="2"
-        title="Select channels"
-        icon="tune"
-        :done="step > 2"
-      >
+      <q-step :name="2" title="Select channels" icon="tune" :done="step > 2">
         <q-select
           v-if="enviImagesStore.wavelengths"
           v-model="selectedWavelengths"
@@ -109,23 +84,12 @@
           behavior="menu"
         />
 
-        <q-stepper-navigation
-          v-if="selectedWavelengths?.length > 0 || selectedBands?.length > 0"
-        >
-          <q-btn
-            @click="step = 3"
-            label="Continue"
-            color="primary"
-          />
+        <q-stepper-navigation v-if="selectedWavelengths?.length > 0 || selectedBands?.length > 0">
+          <q-btn @click="step = 3" label="Continue" color="primary" />
           <q-btn flat @click="step = 1" color="primary" label="Back" class="q-ml-sm" />
         </q-stepper-navigation>
 
-        <q-banner
-          v-else
-          class="q-mt-md bg-info text-black"
-          type="info"
-          dense
-        >
+        <q-banner v-else class="q-mt-md bg-info text-black" type="info" dense>
           <template v-slot:avatar>
             <q-icon name="info" color="black" />
           </template>
@@ -133,12 +97,7 @@
         </q-banner>
       </q-step>
 
-      <q-step
-        :name="3"
-        title="Upload and process"
-        icon="cloud_upload"
-        :done="step > 3"
-      >
+      <q-step :name="3" title="Upload and process" icon="cloud_upload" :done="step > 3">
         <q-linear-progress
           :value="uploadStats.progress"
           color="primary"
@@ -152,15 +111,9 @@
         </q-linear-progress>
 
         <div class="text-caption text-grey-8 q-mt-sm">
-          <div>
-            <strong>Processing speed:</strong> {{ uploadStats.processSpeedStr }}
-          </div>
-          <div>
-            <strong>Upload speed:</strong> {{ uploadStats.uploadSpeedStr }}
-          </div>
-          <div>
-            <strong>ETA:</strong> {{ uploadStats.estimatedTimeRemainingStr }}
-          </div>
+          <div><strong>Processing speed:</strong> {{ uploadStats.processSpeedStr }}</div>
+          <div><strong>Upload speed:</strong> {{ uploadStats.uploadSpeedStr }}</div>
+          <div><strong>ETA:</strong> {{ uploadStats.estimatedTimeRemainingStr }}</div>
         </div>
 
         <q-btn
@@ -172,12 +125,7 @@
           @click="upload"
         />
 
-        <q-btn
-          label="Cancel"
-          class="q-mt-md"
-          v-if="uploading"
-          @click="cancel"
-        />
+        <q-btn label="Cancel" class="q-mt-md" v-if="uploading" @click="cancel" />
 
         <q-stepper-navigation>
           <q-btn flat @click="step = 2" color="primary" label="Back" class="q-ml-sm" />
@@ -212,7 +160,11 @@
             :indeterminate="!progressStep"
           >
             <div v-if="progressStep && progressTotal" class="absolute-full flex flex-center">
-              <q-badge color="white" text-color="primary" :label="`${progressStep}/${progressTotal}`" />
+              <q-badge
+                color="white"
+                text-color="primary"
+                :label="`${progressStep}/${progressTotal}`"
+              />
             </div>
           </q-linear-progress>
           <div v-if="progressMessage" class="text-caption text-grey-8 q-mt-sm">
@@ -240,7 +192,14 @@
           </q-banner>
 
           <q-list v-if="outputFiles.length > 0" class="q-mt-md" bordered separator>
-            <q-item v-for="file in outputFiles" :key="file" clickable tag="a" :href="fileDownloadUrl(file)" target="_blank">
+            <q-item
+              v-for="file in outputFiles"
+              :key="file"
+              clickable
+              tag="a"
+              :href="fileDownloadUrl(file)"
+              target="_blank"
+            >
               <q-item-section avatar>
                 <q-icon :name="file.endsWith('.pdf') ? 'picture_as_pdf' : 'description'" />
               </q-item-section>
@@ -294,42 +253,40 @@
 </template>
 
 <script setup lang="ts">
-import { Notify } from 'quasar';
-import type { UploadInitResponse, ProcessStatusResponse } from 'src/models';
-import type { EnviImage } from 'envi-image-reader/image';
-import { SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_HEADER_EXTENSIONS } from 'envi-image-reader/image';
-import { baseUrl as apiBaseUrl } from 'src/boot/api';
+import { Notify } from 'quasar'
+import type { UploadInitResponse, ProcessStatusResponse } from 'src/models'
+import type { EnviImage } from 'envi-image-reader/image'
+import { SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_HEADER_EXTENSIONS } from 'envi-image-reader/image'
+import { baseUrl as apiBaseUrl } from 'src/boot/api'
 
-const step = ref(1);
-const enviImagesStore = useEnviImagesStore();
-const files = ref<File[] | null>(null);
-const selectedWavelengths = ref<string[]>([]);
-const selectedBands = ref<string[]>([]);
-const uploading = ref(false);
-const sessionIdRef = ref<string | null>(null);
-let uploadController: AbortController | null = null;
-let etaInterval: ReturnType<typeof setInterval> | null = null;
+const step = ref(1)
+const enviImagesStore = useEnviImagesStore()
+const files = ref<File[] | null>(null)
+const selectedWavelengths = ref<string[]>([])
+const selectedBands = ref<string[]>([])
+const uploading = ref(false)
+const sessionIdRef = ref<string | null>(null)
+let uploadController: AbortController | null = null
+let etaInterval: ReturnType<typeof setInterval> | null = null
 
 // Processing state
-const processStatus = ref<string | null>(null);
-const progressStep = ref<number | null>(null);
-const progressTotal = ref<number | null>(null);
-const progressMessage = ref<string | null>(null);
-const processMessage = ref<string>('');
-const outputFiles = ref<string[]>([]);
-const containerLogs = ref<string>('');
-const showLogs = ref(false);
-let pollInterval: ReturnType<typeof setInterval> | null = null;
-
+const processStatus = ref<string | null>(null)
+const progressStep = ref<number | null>(null)
+const progressTotal = ref<number | null>(null)
+const progressMessage = ref<string | null>(null)
+const processMessage = ref<string>('')
+const outputFiles = ref<string[]>([])
+const containerLogs = ref<string>('')
+const showLogs = ref(false)
+let pollInterval: ReturnType<typeof setInterval> | null = null
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
-
 
 const uploadStats = reactive({
   totalProcessedBytes: 0,
@@ -341,462 +298,464 @@ const uploadStats = reactive({
   uploadedBytes: 0,
   uploadedFiles: 0,
   get progress() {
-    return this.totalFiles > 0
-      ? this.uploadedFiles / this.totalFiles
-      : 0
+    return this.totalFiles > 0 ? this.uploadedFiles / this.totalFiles : 0
   },
   get progressStr() {
     return this.totalFiles > 0
       ? `${Math.round(this.progress * 100)}% (${this.uploadedFiles}/${this.totalFiles})`
-      : ""
+      : ''
   },
   get processSpeedStr() {
     if (this.processTime === 0) {
-      return "-";
+      return '-'
     }
-    const speed = this.processedBytes / (this.processTime / 1000);
-    return `${formatBytes(speed)}/s`;
+    const speed = this.processedBytes / (this.processTime / 1000)
+    return `${formatBytes(speed)}/s`
   },
   get uploadSpeedStr() {
     if (this.uploadTime === 0) {
-      return "-";
+      return '-'
     }
-    const speed = this.uploadedBytes / (this.uploadTime / 1000);
-    return `${formatBytes(speed)}/s`;
+    const speed = this.uploadedBytes / (this.uploadTime / 1000)
+    return `${formatBytes(speed)}/s`
   },
   get estimatedTimeRemainingStr() {
     if (this.processedBytes === 0 || this.uploadedBytes === 0) {
-      return "-";
+      return '-'
     }
-    const processSpeed = this.processedBytes / (this.processTime / 1000);
-    const processRemainingBytes = this.totalProcessedBytes - this.processedBytes;
-    const uploadSpeed = this.uploadedBytes / (this.uploadTime / 1000);
-    const uploadRemainingBytes = this.totalUploadedBytes - this.uploadedBytes;
-    const estimatedTimeRemaining = processRemainingBytes / processSpeed + uploadRemainingBytes / uploadSpeed;
-    const minutes = Math.floor(estimatedTimeRemaining / 60);
-    const seconds = Math.floor(estimatedTimeRemaining % 60);
+    const processSpeed = this.processedBytes / (this.processTime / 1000)
+    const processRemainingBytes = this.totalProcessedBytes - this.processedBytes
+    const uploadSpeed = this.uploadedBytes / (this.uploadTime / 1000)
+    const uploadRemainingBytes = this.totalUploadedBytes - this.uploadedBytes
+    const estimatedTimeRemaining =
+      processRemainingBytes / processSpeed + uploadRemainingBytes / uploadSpeed
+    const minutes = Math.floor(estimatedTimeRemaining / 60)
+    const seconds = Math.floor(estimatedTimeRemaining % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   },
 
   reset() {
-    this.totalProcessedBytes = 0;
-    this.totalUploadedBytes = 0;
-    this.totalFiles = 0;
-    this.processTime = 0;
-    this.processedBytes = 0;
-    this.uploadTime = 0;
-    this.uploadedBytes = 0;
-    this.uploadedFiles = 0;
-  }
-});
-
+    this.totalProcessedBytes = 0
+    this.totalUploadedBytes = 0
+    this.totalFiles = 0
+    this.processTime = 0
+    this.processedBytes = 0
+    this.uploadTime = 0
+    this.uploadedBytes = 0
+    this.uploadedFiles = 0
+  },
+})
 
 const headerFiles = computed(() => {
-  return files.value?.filter(file => SUPPORTED_HEADER_EXTENSIONS.some(ext => file.name.endsWith(ext))) || [];
-});
+  return (
+    files.value?.filter((file) =>
+      SUPPORTED_HEADER_EXTENSIONS.some((ext) => file.name.endsWith(ext)),
+    ) || []
+  )
+})
 
 const imageFiles = computed(() => {
-  return files.value?.filter(file => SUPPORTED_IMAGE_EXTENSIONS.some(ext => file.name.endsWith(ext))) || [];
-});
+  return (
+    files.value?.filter((file) =>
+      SUPPORTED_IMAGE_EXTENSIONS.some((ext) => file.name.endsWith(ext)),
+    ) || []
+  )
+})
 
 const filesSelectionIsValid = computed(() => {
   if (!headerFiles.value || headerFiles.value.length === 0) {
-    return false;
+    return false
   }
 
   if (imageFiles.value.length !== headerFiles.value.length) {
-    return false;
+    return false
   }
 
   for (const headerFile of headerFiles.value) {
-    const baseName = headerFile.name.split('.').slice(0, -1).join('.');
-    const matchingImageFile = imageFiles.value.find(file => file.name.startsWith(baseName));
+    const baseName = headerFile.name.split('.').slice(0, -1).join('.')
+    const matchingImageFile = imageFiles.value.find((file) => file.name.startsWith(baseName))
     if (!matchingImageFile) {
-      return false;
+      return false
     }
   }
 
-  return true;
-});
-
+  return true
+})
 
 watch(files, async () => {
   if (filesSelectionIsValid.value) {
-    enviImagesStore.loadData(headerFiles.value, imageFiles.value);
+    enviImagesStore.loadData(headerFiles.value, imageFiles.value)
   } else {
-    enviImagesStore.clearData();
+    enviImagesStore.clearData()
   }
-  selectedWavelengths.value = [];
-  selectedBands.value = [];
-  uploadStats.reset();
+  selectedWavelengths.value = []
+  selectedBands.value = []
+  uploadStats.reset()
 })
-
 
 const headerColumns = [
   { name: 'key', label: 'Key', field: 'key', align: 'left' as const },
   { name: 'value', label: 'Value', field: 'value', align: 'left' as const },
-];
-
+]
 
 const headerRows = computed(() => {
   if (!enviImagesStore.images || enviImagesStore.loading) {
-    return [];
+    return []
   }
-  const firstImage = Object.values(enviImagesStore.images)[0];
+  const firstImage = Object.values(enviImagesStore.images)[0]
   if (!firstImage || !firstImage.headerData) {
-    return [];
+    return []
   }
   return Object.entries(firstImage.headerData).map(([key, value]) => ({
     key: key,
     value: Array.isArray(value) ? value.join(',') : String(value),
   }))
-});
+})
 
-
-const wavelengthsOptions = ref<string[]>([]);
-watch(() => enviImagesStore.wavelengths, (newWavelengths) => {
-  wavelengthsOptions.value = newWavelengths || [];
-}, { immediate: true });
-
+const wavelengthsOptions = ref<string[]>([])
+watch(
+  () => enviImagesStore.wavelengths,
+  (newWavelengths) => {
+    wavelengthsOptions.value = newWavelengths || []
+  },
+  { immediate: true },
+)
 
 function wavelengthsFilterFn(val: string, update: (callback: () => void) => void) {
   update(() => {
-    const needle = val.toLowerCase();
-    wavelengthsOptions.value = enviImagesStore.wavelengths?.filter(wavelength => wavelength.toLowerCase().includes(needle)) || [];
-  });
+    const needle = val.toLowerCase()
+    wavelengthsOptions.value =
+      enviImagesStore.wavelengths?.filter((wavelength) =>
+        wavelength.toLowerCase().includes(needle),
+      ) || []
+  })
 }
 
-
-const bandNamesOptions = ref<string[]>([]);
-watch(() => enviImagesStore.bandNames, (newBandNames) => {
-  bandNamesOptions.value = newBandNames || [];
-}, { immediate: true });
-
+const bandNamesOptions = ref<string[]>([])
+watch(
+  () => enviImagesStore.bandNames,
+  (newBandNames) => {
+    bandNamesOptions.value = newBandNames || []
+  },
+  { immediate: true },
+)
 
 function bandNamesFilterFn(val: string, update: (callback: () => void) => void) {
   update(() => {
-    const needle = val.toLowerCase();
-    bandNamesOptions.value = enviImagesStore.bandNames?.filter(bandName => bandName.toLowerCase().includes(needle)) || [];
-  });
+    const needle = val.toLowerCase()
+    bandNamesOptions.value =
+      enviImagesStore.bandNames?.filter((bandName) => bandName.toLowerCase().includes(needle)) || []
+  })
 }
 
-
 const canUploadFiles = computed(() => {
-  const hasImages = enviImagesStore.images !== null;
-  const hasWavelengths = selectedWavelengths.value.length > 0;
-  const hasBands = selectedBands.value.length > 0;
-  return hasImages && (hasWavelengths || hasBands) && !uploading.value;
-});
-
+  const hasImages = enviImagesStore.images !== null
+  const hasWavelengths = selectedWavelengths.value.length > 0
+  const hasBands = selectedBands.value.length > 0
+  return hasImages && (hasWavelengths || hasBands) && !uploading.value
+})
 
 async function initSession(): Promise<UploadInitResponse> {
-  uploadController = new AbortController();
-  const url = `${apiBaseUrl}/upload/init`;
+  uploadController = new AbortController()
+  const url = `${apiBaseUrl}/upload/init`
 
   const initResponse = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal: uploadController.signal,
-  });
+  })
 
   if (!initResponse.ok) {
-    throw `Failed to initialize upload: ${initResponse.statusText}`;
+    throw `Failed to initialize upload: ${initResponse.statusText}`
   }
 
-  const data = await initResponse.json();
+  const data = await initResponse.json()
   return {
     sessionId: data.session_id,
   }
 }
 
-
 async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
-  const startTime = performance.now();
-  uploadStats.totalUploadedBytes += buffer.byteLength;
+  const startTime = performance.now()
+  uploadStats.totalUploadedBytes += buffer.byteLength
 
-  console.log(`Starting upload of ${filename} (${buffer.byteLength} bytes)`);
+  console.log(`Starting upload of ${filename} (${buffer.byteLength} bytes)`)
 
   try {
     if (!uploadController) {
-      throw 'Upload controller not initialized';
+      throw 'Upload controller not initialized'
     }
 
-    const url = `${apiBaseUrl}/upload/?session_id=${sessionIdRef.value}&filename=${filename}`;
-    const formData = new FormData();
-    formData.append('file', new Blob([buffer]));
+    const url = `${apiBaseUrl}/upload/?session_id=${sessionIdRef.value}&filename=${filename}`
+    const formData = new FormData()
+    formData.append('file', new Blob([buffer]))
 
     const uploadResponse = await fetch(url, {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
       },
       body: formData,
       signal: uploadController.signal,
-    });
+    })
 
-    console.log(`Upload response for ${filename}: ${uploadResponse.status} ${uploadResponse.statusText}`);
+    console.log(
+      `Upload response for ${filename}: ${uploadResponse.status} ${uploadResponse.statusText}`,
+    )
 
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text().catch(() => 'No error details');
-      throw `Failed to upload file ${filename}: ${uploadResponse.statusText} - ${errorText}`;
+      const errorText = await uploadResponse.text().catch(() => 'No error details')
+      throw `Failed to upload file ${filename}: ${uploadResponse.statusText} - ${errorText}`
     }
 
-    console.log(`Successfully uploaded ${filename}`);
-    uploadStats.uploadedFiles += 1;
-
+    console.log(`Successfully uploaded ${filename}`)
+    uploadStats.uploadedFiles += 1
   } catch (error) {
-    console.error(`Upload failed for ${filename}:`, error);
-    throw error; // Re-throw to fail the parent promise
+    console.error(`Upload failed for ${filename}:`, error)
+    throw error // Re-throw to fail the parent promise
   } finally {
-    uploadStats.uploadedBytes += buffer.byteLength;
-    uploadStats.uploadTime += performance.now() - startTime;
+    uploadStats.uploadedBytes += buffer.byteLength
+    uploadStats.uploadTime += performance.now() - startTime
   }
 }
-
 
 async function uploadHeader(image: EnviImage) {
   try {
-    console.log(`Reading header file: ${image.headerFile.name}`);
-    const readBuffer = await image.headerFile.arrayBuffer();
-    const filename = encodeURIComponent(image.headerFile.name);
-    console.log(`Header file read, starting upload: ${filename}`);
-    await uploadBuffer(readBuffer, filename);
-    console.log(`Header upload complete: ${filename}`);
+    console.log(`Reading header file: ${image.headerFile.name}`)
+    const readBuffer = await image.headerFile.arrayBuffer()
+    const filename = encodeURIComponent(image.headerFile.name)
+    console.log(`Header file read, starting upload: ${filename}`)
+    await uploadBuffer(readBuffer, filename)
+    console.log(`Header upload complete: ${filename}`)
   } catch (error) {
-    console.error(`Failed to upload header ${image.headerFile.name}:`, error);
-    throw error;
+    console.error(`Failed to upload header ${image.headerFile.name}:`, error)
+    throw error
   }
 }
-
 
 async function uploadImage(image: EnviImage) {
   try {
-    const startTime = performance.now();
-    uploadStats.totalProcessedBytes += image.bilFile.size;
+    const startTime = performance.now()
+    uploadStats.totalProcessedBytes += image.bilFile.size
 
-    console.log(`Processing image: ${image.bilFile.name}`);
+    console.log(`Processing image: ${image.bilFile.name}`)
 
-    let selectedChannels: number[];
+    let selectedChannels: number[]
 
     if (selectedWavelengths.value.length > 0) {
-      selectedChannels = selectedWavelengths.value.map(wavelength =>
-        image.headerData["wavelength"]?.indexOf(wavelength) ?? -1
-      );
+      selectedChannels = selectedWavelengths.value.map(
+        (wavelength) => image.headerData['wavelength']?.indexOf(wavelength) ?? -1,
+      )
     } else {
-      selectedChannels = selectedBands.value.map(bandName =>
-        image.headerData["band_names"]?.indexOf(bandName) ?? -1
-      );
+      selectedChannels = selectedBands.value.map(
+        (bandName) => image.headerData['band_names']?.indexOf(bandName) ?? -1,
+      )
     }
 
-    console.log(`Reading BIL data for ${image.bilFile.name}, channels: ${selectedChannels.length}`);
-    const bilData = await image.getBilData(selectedChannels);
-    console.log(`BIL data read, size: ${bilData.buffer.byteLength} bytes`);
+    console.log(`Reading BIL data for ${image.bilFile.name}, channels: ${selectedChannels.length}`)
+    const bilData = await image.getBilData(selectedChannels)
+    console.log(`BIL data read, size: ${bilData.buffer.byteLength} bytes`)
 
-    const readBuffer = bilData.buffer as ArrayBuffer;
-    uploadStats.processedBytes += image.bilFile.size;
-    uploadStats.processTime += performance.now() - startTime;
+    const readBuffer = bilData.buffer as ArrayBuffer
+    uploadStats.processedBytes += image.bilFile.size
+    uploadStats.processTime += performance.now() - startTime
 
-    const filename = encodeURIComponent(image.bilFile.name);
-    console.log(`Starting BIL upload: ${filename}`);
-    await uploadBuffer(readBuffer, filename);
-    console.log(`BIL upload complete: ${filename}`);
+    const filename = encodeURIComponent(image.bilFile.name)
+    console.log(`Starting BIL upload: ${filename}`)
+    await uploadBuffer(readBuffer, filename)
+    console.log(`BIL upload complete: ${filename}`)
   } catch (error) {
-    console.error(`Failed to upload image ${image.bilFile.name}:`, error);
-    throw error;
+    console.error(`Failed to upload image ${image.bilFile.name}:`, error)
+    throw error
   }
 }
 
-
 async function upload() {
   if (!enviImagesStore.images) {
-    return;
+    return
   }
 
   try {
-    const { sessionId } = await initSession();
-    uploading.value = true;
-    sessionIdRef.value = sessionId;
-    console.log(`Upload initialized with session ID: ${sessionId}`);
+    const { sessionId } = await initSession()
+    uploading.value = true
+    sessionIdRef.value = sessionId
+    console.log(`Upload initialized with session ID: ${sessionId}`)
 
     if (!etaInterval) {
-    console.log('Starting ETA update interval');
+      console.log('Starting ETA update interval')
       etaInterval = setInterval(() => {
-        console.log(uploadStats.estimatedTimeRemainingStr);
-      }, 1000);
+        console.log(uploadStats.estimatedTimeRemainingStr)
+      }, 1000)
     }
   } catch (error) {
-    console.error('Failed to initialize upload session:', error);
-    uploading.value = false;
-    sessionIdRef.value = null;
+    console.error('Failed to initialize upload session:', error)
+    uploading.value = false
+    sessionIdRef.value = null
 
     Notify.create({
       type: 'negative',
       message: 'Failed to initialize upload session!',
       position: 'top',
-      timeout: 3000
-    });
+      timeout: 3000,
+    })
 
-    return;
+    return
   }
 
-  uploading.value = true;
-  uploadStats.reset();
-  uploadStats.totalFiles = Object.keys(enviImagesStore.images).length * 2; // headers + images
+  uploading.value = true
+  uploadStats.reset()
+  uploadStats.totalFiles = Object.keys(enviImagesStore.images).length * 2 // headers + images
 
-  const promises: Promise<void>[] = [];
+  const promises: Promise<void>[] = []
 
   for (const image of Object.values(enviImagesStore.images)) {
-    promises.push(uploadHeader(image));
-    promises.push(uploadImage(image));
+    promises.push(uploadHeader(image))
+    promises.push(uploadImage(image))
   }
 
   try {
-    await Promise.all(promises);
+    await Promise.all(promises)
   } catch (error) {
-    console.error('Upload failed:', error);
-    uploading.value = false;
-    uploadController = null;
+    console.error('Upload failed:', error)
+    uploading.value = false
+    uploadController = null
     Notify.create({
       type: 'negative',
       message: `Upload failed: ${error}`,
       position: 'top',
-      timeout: 5000
-    });
-    return;
+      timeout: 5000,
+    })
+    return
   }
 
   // Stop ETA update interval
   if (etaInterval) {
-    clearInterval(etaInterval);
-    etaInterval = null;
+    clearInterval(etaInterval)
+    etaInterval = null
   }
 
-  uploading.value = false;
-  uploadController = null;
+  uploading.value = false
+  uploadController = null
 
   Notify.create({
     type: 'positive',
     message: 'Upload completed successfully!',
     position: 'top',
-    timeout: 3000
-  });
+    timeout: 3000,
+  })
 
-  step.value = 4;
+  step.value = 4
 }
-
 
 async function cancel() {
   if (!sessionIdRef.value) {
-    return;
+    return
   }
 
-  uploadController?.abort();
-  uploadController = null;
-  uploading.value = false;
-  sessionIdRef.value = null;
+  uploadController?.abort()
+  uploadController = null
+  uploading.value = false
+  sessionIdRef.value = null
 
   if (etaInterval) {
-    clearInterval(etaInterval);
-    etaInterval = null;
+    clearInterval(etaInterval)
+    etaInterval = null
   }
 }
 
-
 async function startProcessing() {
-  if (!sessionIdRef.value) return;
+  if (!sessionIdRef.value) return
 
-  processStatus.value = 'starting';
+  processStatus.value = 'starting'
 
   try {
     const response = await fetch(`${apiBaseUrl}/process/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionIdRef.value }),
-    });
+    })
 
     if (!response.ok) {
-      const error = await response.json();
-      throw error.detail || response.statusText;
+      const error = await response.json()
+      throw error.detail || response.statusText
     }
 
-    processStatus.value = 'processing';
-    startPolling();
+    processStatus.value = 'processing'
+    startPolling()
   } catch (error) {
-    processStatus.value = 'failed';
-    processMessage.value = String(error);
-    Notify.create({ type: 'negative', message: `Failed to start processing: ${error}`, position: 'top', timeout: 5000 });
+    processStatus.value = 'failed'
+    processMessage.value = String(error)
+    Notify.create({
+      type: 'negative',
+      message: `Failed to start processing: ${error}`,
+      position: 'top',
+      timeout: 5000,
+    })
   }
 }
 
-
 function startPolling() {
-  if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(pollStatus, 3000);
+  if (pollInterval) clearInterval(pollInterval)
+  pollInterval = setInterval(pollStatus, 3000)
 }
 
-
 async function pollStatus() {
-  if (!sessionIdRef.value) return;
+  if (!sessionIdRef.value) return
 
   try {
-    const response = await fetch(`${apiBaseUrl}/process/${sessionIdRef.value}/status`);
-    if (!response.ok) return;
+    const response = await fetch(`${apiBaseUrl}/process/${sessionIdRef.value}/status`)
+    if (!response.ok) return
 
-    const data: ProcessStatusResponse = await response.json();
-    processStatus.value = data.status;
-    processMessage.value = data.message;
-    progressStep.value = data.progress_step;
-    progressTotal.value = data.progress_total;
-    progressMessage.value = data.progress_message;
+    const data: ProcessStatusResponse = await response.json()
+    processStatus.value = data.status
+    processMessage.value = data.message
+    progressStep.value = data.progress_step
+    progressTotal.value = data.progress_total
+    progressMessage.value = data.progress_message
 
     if (data.output_files) {
-      outputFiles.value = data.output_files;
+      outputFiles.value = data.output_files
     }
 
     if (showLogs.value) {
-      await fetchLogs();
+      await fetchLogs()
     }
 
     if (data.status === 'completed' || data.status === 'failed') {
       if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
+        clearInterval(pollInterval)
+        pollInterval = null
       }
-      await fetchLogs();
+      await fetchLogs()
     }
   } catch (error) {
-    console.error('Failed to poll status:', error);
+    console.error('Failed to poll status:', error)
   }
 }
 
-
 async function fetchLogs() {
-  if (!sessionIdRef.value) return;
+  if (!sessionIdRef.value) return
   try {
-    const response = await fetch(`${apiBaseUrl}/process/${sessionIdRef.value}/logs`);
+    const response = await fetch(`${apiBaseUrl}/process/${sessionIdRef.value}/logs`)
     if (response.ok) {
-      const data = await response.json();
-      containerLogs.value = data.logs || '';
+      const data = await response.json()
+      containerLogs.value = data.logs || ''
     }
   } catch {
     // Silently ignore — pod may not be ready yet
   }
 }
 
-
 async function toggleLogs() {
-  showLogs.value = !showLogs.value;
+  showLogs.value = !showLogs.value
   if (showLogs.value && !containerLogs.value) {
-    await fetchLogs();
+    await fetchLogs()
   }
 }
 
-
 function fileDownloadUrl(filename: string): string {
-  return `${apiBaseUrl}/process/${sessionIdRef.value}/files/${encodeURIComponent(filename)}`;
+  return `${apiBaseUrl}/process/${sessionIdRef.value}/files/${encodeURIComponent(filename)}`
 }
-
-
 </script>
 
 <style scoped>

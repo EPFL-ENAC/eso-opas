@@ -183,13 +183,119 @@
           <q-btn flat @click="step = 2" color="primary" label="Back" class="q-ml-sm" />
         </q-stepper-navigation>
       </q-step>
+
+      <q-step
+        :name="4"
+        title="Process & Results"
+        icon="science"
+        :done="processStatus === 'completed'"
+      >
+        <!-- Not started / ready to start -->
+        <div v-if="!processStatus || processStatus === 'not_started'">
+          <q-btn
+            label="Start Processing"
+            color="primary"
+            icon="play_arrow"
+            :loading="processStatus === 'starting'"
+            @click="startProcessing"
+          />
+        </div>
+
+        <!-- Processing in progress -->
+        <div v-if="processStatus === 'processing'">
+          <q-linear-progress
+            :value="progressStep && progressTotal ? progressStep / progressTotal : 0"
+            color="primary"
+            class="q-mt-md"
+            size="25px"
+            :animation-speed="200"
+            :indeterminate="!progressStep"
+          >
+            <div v-if="progressStep && progressTotal" class="absolute-full flex flex-center">
+              <q-badge color="white" text-color="primary" :label="`${progressStep}/${progressTotal}`" />
+            </div>
+          </q-linear-progress>
+          <div v-if="progressMessage" class="text-caption text-grey-8 q-mt-sm">
+            {{ progressStep === progressTotal ? 'Finalizing...' : progressMessage }}
+          </div>
+          <q-btn
+            flat
+            dense
+            size="sm"
+            class="q-mt-sm"
+            :icon="showLogs ? 'expand_less' : 'expand_more'"
+            :label="showLogs ? 'Hide Logs' : 'Show Logs'"
+            @click="showLogs = !showLogs"
+          />
+          <pre v-if="showLogs && containerLogs" class="log-viewer q-mt-sm">{{ containerLogs }}</pre>
+        </div>
+
+        <!-- Completed -->
+        <div v-if="processStatus === 'completed'">
+          <q-banner class="q-mt-md bg-positive text-white" dense>
+            <template v-slot:avatar>
+              <q-icon name="check_circle" color="white" />
+            </template>
+            Processing completed successfully.
+          </q-banner>
+
+          <q-list v-if="outputFiles.length > 0" class="q-mt-md" bordered separator>
+            <q-item v-for="file in outputFiles" :key="file" clickable tag="a" :href="fileDownloadUrl(file)" target="_blank">
+              <q-item-section avatar>
+                <q-icon :name="file.endsWith('.pdf') ? 'picture_as_pdf' : 'description'" />
+              </q-item-section>
+              <q-item-section>{{ file }}</q-item-section>
+              <q-item-section side>
+                <q-icon name="download" />
+              </q-item-section>
+            </q-item>
+          </q-list>
+          <q-btn
+            flat
+            dense
+            size="sm"
+            class="q-mt-sm"
+            :icon="showLogs ? 'expand_less' : 'expand_more'"
+            :label="showLogs ? 'Hide Logs' : 'Show Logs'"
+            @click="toggleLogs"
+          />
+          <pre v-if="showLogs && containerLogs" class="log-viewer q-mt-sm">{{ containerLogs }}</pre>
+        </div>
+
+        <!-- Failed -->
+        <div v-if="processStatus === 'failed'">
+          <q-banner class="q-mt-md bg-negative text-white" dense>
+            <template v-slot:avatar>
+              <q-icon name="error" color="white" />
+            </template>
+            Processing failed. {{ processMessage }}
+          </q-banner>
+          <q-btn
+            flat
+            dense
+            size="sm"
+            class="q-mt-sm"
+            :icon="showLogs ? 'expand_less' : 'expand_more'"
+            :label="showLogs ? 'Hide Logs' : 'Show Logs'"
+            @click="toggleLogs"
+          />
+          <pre v-if="showLogs && containerLogs" class="log-viewer q-mt-sm">{{ containerLogs }}</pre>
+          <q-btn
+            label="Retry"
+            color="primary"
+            icon="refresh"
+            class="q-mt-md"
+            @click="startProcessing"
+          />
+        </div>
+      </q-step>
     </q-stepper>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Notify } from 'quasar'; // Import Quasar Notify
-import type { UploadInitResponse } from 'src/models';
+import { Notify } from 'quasar';
+import type { UploadInitResponse, ProcessStatusResponse } from 'src/models';
 import type { EnviImage } from 'envi-image-reader/image';
 import { SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_HEADER_EXTENSIONS } from 'envi-image-reader/image';
 import { baseUrl as apiBaseUrl } from 'src/boot/api';
@@ -203,6 +309,17 @@ const uploading = ref(false);
 const sessionIdRef = ref<string | null>(null);
 let uploadController: AbortController | null = null;
 let etaInterval: ReturnType<typeof setInterval> | null = null;
+
+// Processing state
+const processStatus = ref<string | null>(null);
+const progressStep = ref<number | null>(null);
+const progressTotal = ref<number | null>(null);
+const progressMessage = ref<string | null>(null);
+const processMessage = ref<string>('');
+const outputFiles = ref<string[]>([]);
+const containerLogs = ref<string>('');
+const showLogs = ref(false);
+let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 
 function formatBytes(bytes: number): string {
@@ -514,7 +631,6 @@ async function upload() {
   }
 
   uploading.value = false;
-  sessionIdRef.value = null;
   uploadController = null;
 
   Notify.create({
@@ -523,6 +639,8 @@ async function upload() {
     position: 'top',
     timeout: 3000
   });
+
+  step.value = 4;
 }
 
 
@@ -543,4 +661,114 @@ async function cancel() {
 }
 
 
+async function startProcessing() {
+  if (!sessionIdRef.value) return;
+
+  processStatus.value = 'starting';
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/process/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionIdRef.value }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw error.detail || response.statusText;
+    }
+
+    processStatus.value = 'processing';
+    startPolling();
+  } catch (error) {
+    processStatus.value = 'failed';
+    processMessage.value = String(error);
+    Notify.create({ type: 'negative', message: `Failed to start processing: ${error}`, position: 'top', timeout: 5000 });
+  }
+}
+
+
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(pollStatus, 3000);
+}
+
+
+async function pollStatus() {
+  if (!sessionIdRef.value) return;
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/process/${sessionIdRef.value}/status`);
+    if (!response.ok) return;
+
+    const data: ProcessStatusResponse = await response.json();
+    processStatus.value = data.status;
+    processMessage.value = data.message;
+    progressStep.value = data.progress_step;
+    progressTotal.value = data.progress_total;
+    progressMessage.value = data.progress_message;
+
+    if (data.output_files) {
+      outputFiles.value = data.output_files;
+    }
+
+    if (showLogs.value) {
+      await fetchLogs();
+    }
+
+    if (data.status === 'completed' || data.status === 'failed') {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      await fetchLogs();
+    }
+  } catch (error) {
+    console.error('Failed to poll status:', error);
+  }
+}
+
+
+async function fetchLogs() {
+  if (!sessionIdRef.value) return;
+  try {
+    const response = await fetch(`${apiBaseUrl}/process/${sessionIdRef.value}/logs`);
+    if (response.ok) {
+      const data = await response.json();
+      containerLogs.value = data.logs || '';
+    }
+  } catch {
+    // Silently ignore — pod may not be ready yet
+  }
+}
+
+
+async function toggleLogs() {
+  showLogs.value = !showLogs.value;
+  if (showLogs.value && !containerLogs.value) {
+    await fetchLogs();
+  }
+}
+
+
+function fileDownloadUrl(filename: string): string {
+  return `${apiBaseUrl}/process/${sessionIdRef.value}/files/${encodeURIComponent(filename)}`;
+}
+
+
 </script>
+
+<style scoped>
+.log-viewer {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+</style>

@@ -21,7 +21,7 @@ bilNames = [re.sub(r"\s+", "_", os.path.splitext(os.path.basename(f))[0]) for f 
 configFile = os.path.join(inFolder, "config.json")
 
 n_pairs = len(list(it.combinations(bilNames, 2)))
-total_steps = 3 + n_pairs + 1  # load + init + N pairs + export
+total_steps = 3 + n_pairs  # load + init + N pairs + export
 
 write_progress(1, total_steps, f"Found {len(bilFiles)} image(s), loading configuration")
 
@@ -106,7 +106,7 @@ for pair_idx, (bilName1, bilName2) in enumerate(pairs):
     autoDetectTiePointsKwArgs["outFile"] = outFilePath
     app.callAction("PikaLTools", "autoDetectBilSequencesTiePoints", autoDetectTiePointsArgs, autoDetectTiePointsKwArgs)
 
-write_progress(total_steps - 1, total_steps, "Exporting correspondence sets")
+write_progress(total_steps, total_steps, "Exporting correspondence sets")
 
 correspondencesSets = app.listDatablocks("StereoVisionApp::CorrespondencesSet")
 
@@ -114,5 +114,3 @@ for correspSet in correspondencesSets:
     exportSetArgs = [correspSet.reference, os.path.join(outFolder, correspSet.name + "_export.csv")]
     exportSetKwArgs: dict[str, str] = {}
     app.callAction("CorrespondencesSet", "exportSet", exportSetArgs, exportSetKwArgs)
-
-write_progress(total_steps, total_steps, "Done")

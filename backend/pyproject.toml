@@ -18,6 +18,8 @@ dependencies = [
     "aiofiles>=25.1.0",
     "python-multipart>=0.0.20",
     "kubernetes>=32.0.0",
+    "docker>=7.1.0",
+    "jinja2>=3.1.2",
 ]
 
 [project.optional-dependencies]

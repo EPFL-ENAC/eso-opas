@@ -1,4 +1,4 @@
-.PHONY: install lint run-backend run-frontend dev test
+.PHONY: install lint run-backend run-frontend dev test k3d-up k3d-down
 
 install:
 	uvx pre-commit install
@@ -21,3 +21,30 @@ dev:
 
 test:
 	cd backend && make test
+
+# ---------- Local K8s (k3d) ----------
+# Creates a minimal k3d cluster so the backend (running locally) can spawn
+# TIE detector K8s jobs.  Usage:
+#   make k3d-up          # one-time setup
+#   USE_K8S=true make dev # run backend+frontend as usual, jobs go to k3d
+#   make k3d-down        # tear down
+
+TIE_IMAGE ?= ghcr.io/epfl-enac/epfl-eso/opas/tie
+TIE_TAG ?= v1.0.0
+
+k3d-up:
+	k3d cluster create opas-local \
+		--volume /tmp/opas-uploads:/tmp/opas-uploads || true
+	docker pull $(TIE_IMAGE):$(TIE_TAG)
+	k3d image import $(TIE_IMAGE):$(TIE_TAG) -c opas-local
+	kubectl apply -f k8s-local/namespace.yaml
+	kubectl apply -f k8s-local/pvc.yaml
+	kubectl apply -f k8s-local/rbac.yaml
+	@echo ""
+	@echo "k3d cluster ready. Run: make dev-k8s"
+
+dev-k8s:
+	USE_K8S=true NAMESPACE=opas TIE_DETECTOR_IMAGE=$(TIE_IMAGE) TIE_DETECTOR_IMAGE_TAG=$(TIE_TAG) make dev
+
+k3d-down:
+	k3d cluster delete opas-local

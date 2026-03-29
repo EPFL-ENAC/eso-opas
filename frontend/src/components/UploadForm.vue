@@ -555,34 +555,55 @@ async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
 
 
 async function uploadHeader(image: EnviImage) {
-  const readBuffer = await image.headerFile.arrayBuffer();
-  const filename = encodeURIComponent(image.headerFile.name);
-  uploadBuffer(readBuffer, filename);
+  try {
+    console.log(`Reading header file: ${image.headerFile.name}`);
+    const readBuffer = await image.headerFile.arrayBuffer();
+    const filename = encodeURIComponent(image.headerFile.name);
+    console.log(`Header file read, starting upload: ${filename}`);
+    await uploadBuffer(readBuffer, filename);
+    console.log(`Header upload complete: ${filename}`);
+  } catch (error) {
+    console.error(`Failed to upload header ${image.headerFile.name}:`, error);
+    throw error;
+  }
 }
 
 
 async function uploadImage(image: EnviImage) {
-  const startTime = performance.now();
-  uploadStats.totalProcessedBytes += image.bilFile.size;
+  try {
+    const startTime = performance.now();
+    uploadStats.totalProcessedBytes += image.bilFile.size;
 
-  let selectedChannels: number[];
+    console.log(`Processing image: ${image.bilFile.name}`);
 
-  if (selectedWavelengths.value.length > 0) {
-    selectedChannels = selectedWavelengths.value.map(wavelength =>
-      image.headerData["wavelength"]?.indexOf(wavelength) ?? -1
-    );
-  } else {
-    selectedChannels = selectedBands.value.map(bandName =>
-      image.headerData["band_names"]?.indexOf(bandName) ?? -1
-    );
+    let selectedChannels: number[];
+
+    if (selectedWavelengths.value.length > 0) {
+      selectedChannels = selectedWavelengths.value.map(wavelength =>
+        image.headerData["wavelength"]?.indexOf(wavelength) ?? -1
+      );
+    } else {
+      selectedChannels = selectedBands.value.map(bandName =>
+        image.headerData["band_names"]?.indexOf(bandName) ?? -1
+      );
+    }
+
+    console.log(`Reading BIL data for ${image.bilFile.name}, channels: ${selectedChannels.length}`);
+    const bilData = await image.getBilData(selectedChannels);
+    console.log(`BIL data read, size: ${bilData.buffer.byteLength} bytes`);
+
+    const readBuffer = bilData.buffer as ArrayBuffer;
+    uploadStats.processedBytes += image.bilFile.size;
+    uploadStats.processTime += performance.now() - startTime;
+
+    const filename = encodeURIComponent(image.bilFile.name);
+    console.log(`Starting BIL upload: ${filename}`);
+    await uploadBuffer(readBuffer, filename);
+    console.log(`BIL upload complete: ${filename}`);
+  } catch (error) {
+    console.error(`Failed to upload image ${image.bilFile.name}:`, error);
+    throw error;
   }
-
-  const readBuffer = (await image.getBilData(selectedChannels)).buffer as ArrayBuffer;
-  uploadStats.processedBytes += image.bilFile.size;
-  uploadStats.processTime += performance.now() - startTime;
-
-  const filename = encodeURIComponent(image.bilFile.name);
-  uploadBuffer(readBuffer, filename);
 }
 
 

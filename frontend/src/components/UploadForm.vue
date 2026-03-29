@@ -514,6 +514,8 @@ async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
   const startTime = performance.now();
   uploadStats.totalUploadedBytes += buffer.byteLength;
 
+  console.log(`Starting upload of ${filename} (${buffer.byteLength} bytes)`);
+
   try {
     if (!uploadController) {
       throw 'Upload controller not initialized';
@@ -532,15 +534,20 @@ async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
       signal: uploadController.signal,
     });
 
+    console.log(`Upload response for ${filename}: ${uploadResponse.status} ${uploadResponse.statusText}`);
+
     if (!uploadResponse.ok) {
-      throw `Failed to upload file ${filename}: ${uploadResponse.statusText}`;
+      const errorText = await uploadResponse.text().catch(() => 'No error details');
+      throw `Failed to upload file ${filename}: ${uploadResponse.statusText} - ${errorText}`;
     }
 
-  } catch (error) {
-    console.error('Upload failed:', error);
-    return;
-  } finally {
+    console.log(`Successfully uploaded ${filename}`);
     uploadStats.uploadedFiles += 1;
+
+  } catch (error) {
+    console.error(`Upload failed for ${filename}:`, error);
+    throw error; // Re-throw to fail the parent promise
+  } finally {
     uploadStats.uploadedBytes += buffer.byteLength;
     uploadStats.uploadTime += performance.now() - startTime;
   }
@@ -622,7 +629,20 @@ async function upload() {
     promises.push(uploadImage(image));
   }
 
-  await Promise.all(promises);
+  try {
+    await Promise.all(promises);
+  } catch (error) {
+    console.error('Upload failed:', error);
+    uploading.value = false;
+    uploadController = null;
+    Notify.create({
+      type: 'negative',
+      message: `Upload failed: ${error}`,
+      position: 'top',
+      timeout: 5000
+    });
+    return;
+  }
 
   // Stop ETA update interval
   if (etaInterval) {

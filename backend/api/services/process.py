@@ -104,7 +104,7 @@ async def _start_k8s_job(
         containers=[container],
         volumes=volumes,
         restart_policy="Never",
-        image_pull_secrets=[k8s_client.V1LocalObjectReference(name="ghcr-token-secret")],
+        service_account_name="opas-api",
     )
 
     job_spec = k8s_client.V1JobSpec(

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: opas-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /tmp
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opas-pvc
+  namespace: opas
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: opas-pv
+  resources:
+    requests:
+      storage: 1Gi

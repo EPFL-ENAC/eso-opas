@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter
+from fastapi.responses import FileResponse
 
 from ..models.process import ProcessRequest, ProcessResponse, ProcessStatusResponse
 from ..services import process
@@ -31,3 +32,11 @@ async def get_logs(session_id: str) -> dict[str, str]:
 
     logger.info(f"Getting logs for session {session_id}")
     return await process.get_container_logs(session_id)
+
+
+@router.get("/{session_id}/files/{filename}")
+async def download_file(session_id: str, filename: str) -> FileResponse:
+    """Download an output file from a processing session."""
+
+    file_path = process.get_output_file(session_id, filename)
+    return FileResponse(path=file_path, filename=filename)

@@ -343,6 +343,24 @@ def _validate_session(session_id: str) -> tuple[Path, Path]:
 
 
 # ---------------------------------------------------------------------------
+# File download
+# ---------------------------------------------------------------------------
+
+
+def get_output_file(session_id: str, filename: str) -> Path:
+    """Return the path to an output file, with path traversal protection."""
+    output_dir = upload_dir_path / session_id / "output"
+    file_path = output_dir / filename
+
+    if not file_path.resolve().is_relative_to(output_dir.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return file_path
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 

@@ -104,7 +104,7 @@ async def _start_k8s_job(
         containers=[container],
         volumes=volumes,
         restart_policy="Never",
-        service_account_name="opas-api",
+        service_account_name=config.TIE_DETECTOR_SERVICE_ACCOUNT,
     )
 
     job_spec = k8s_client.V1JobSpec(

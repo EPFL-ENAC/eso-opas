@@ -16,6 +16,7 @@ class Config(BaseSettings):
     TIE_DETECTOR_IMAGE: str = "ghcr.io/epfl-enac/epfl-eso/opas/tie"
     TIE_DETECTOR_IMAGE_TAG: str = "latest"
     TIE_DETECTOR_PVC_NAME: str = "opas-pvc"  # "opas-pvc-dev" in dev namespace
+    TIE_DETECTOR_SERVICE_ACCOUNT: str = "opas-api"  # "opas-api-dev" in dev namespace
 
 
 @lru_cache()

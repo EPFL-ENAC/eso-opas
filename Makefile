@@ -30,7 +30,7 @@ test:
 #   make k3d-down        # tear down
 
 TIE_IMAGE ?= ghcr.io/epfl-enac/epfl-eso/opas/tie
-TIE_TAG ?= v1.0.0
+TIE_TAG ?= v1.0.4
 
 k3d-up:
 	mkdir -p /tmp/opas-uploads
@@ -45,7 +45,7 @@ k3d-up:
 	@echo "k3d cluster ready. Run: make dev-k8s"
 
 dev-k8s:
-	USE_K8S=true NAMESPACE=opas TIE_DETECTOR_IMAGE=$(TIE_IMAGE) TIE_DETECTOR_IMAGE_TAG=$(TIE_TAG) make dev
+	USE_K8S=true NAMESPACE=opas make dev
 
 k3d-down:
 	k3d cluster delete opas-local

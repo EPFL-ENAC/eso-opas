@@ -18,6 +18,8 @@ def write_progress(step: int, total: int, message: str) -> None:
 # list import files
 bilFiles = glob.glob(os.path.join(inFolder, "*.bil"))
 bilNames = [re.sub(r"\s+", "_", os.path.splitext(os.path.basename(f))[0]) for f in bilFiles]
+print(f"Contents of {inFolder}: {os.listdir(inFolder)}", flush=True)
+print(f"BIL files found: {bilFiles}", flush=True)
 configFile = os.path.join(inFolder, "config.json")
 
 n_pairs = len(list(it.combinations(bilNames, 2)))

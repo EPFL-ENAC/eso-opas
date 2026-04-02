@@ -3,9 +3,9 @@
     <q-stepper v-model="step" vertical animated>
       <q-step :name="1" title="Select files" icon="attach_file" :done="step > 1">
         <q-file
-          :label="`Drag and drop or select ${SUPPORTED_IMAGE_EXTENSIONS.join('/')} and ${SUPPORTED_HEADER_EXTENSIONS.join('/')} files`"
-          :accept="[...SUPPORTED_IMAGE_EXTENSIONS, ...SUPPORTED_HEADER_EXTENSIONS].join(',')"
-          hint="Files will be processed locally before upload."
+          :label="`Drag and drop or select ${SUPPORTED_IMAGE_EXTENSIONS.join('/')} and ${SUPPORTED_HEADER_EXTENSIONS.join('/')} files (optionally include config.json)`"
+          :accept="[...SUPPORTED_IMAGE_EXTENSIONS, ...SUPPORTED_HEADER_EXTENSIONS, '.json'].join(',')"
+          hint="Select all files to upload."
           v-model="files"
           multiple
           append
@@ -31,6 +31,17 @@
           {{ enviImagesStore.error }}
         </q-banner>
 
+        <q-banner
+          v-if="configFile"
+          class="q-mt-md q-mb-md bg-positive text-white"
+          dense
+        >
+          <template v-slot:avatar>
+            <q-icon name="settings" color="white" />
+          </template>
+          config.json detected — will be used for processing instead of defaults.
+        </q-banner>
+
         <q-table
           v-if="enviImagesStore.images"
           title="Header information (from first image)"
@@ -53,51 +64,7 @@
         </q-banner>
       </q-step>
 
-      <q-step :name="2" title="Select channels" icon="tune" :done="step > 2">
-        <q-select
-          v-if="enviImagesStore.wavelengths"
-          v-model="selectedWavelengths"
-          label="Select wavelengths (at least one)"
-          class="q-mt-md"
-          :options="wavelengthsOptions"
-          @filter="wavelengthsFilterFn"
-          clearable
-          multiple
-          use-input
-          input-debounce="0"
-          use-chips
-          behavior="menu"
-        />
-
-        <q-select
-          v-if="!enviImagesStore.wavelengths && enviImagesStore.bandNames"
-          v-model="selectedBands"
-          label="Select bands (at least one)"
-          class="q-mt-md"
-          :options="bandNamesOptions"
-          @filter="bandNamesFilterFn"
-          clearable
-          multiple
-          use-input
-          input-debounce="0"
-          use-chips
-          behavior="menu"
-        />
-
-        <q-stepper-navigation v-if="selectedWavelengths?.length > 0 || selectedBands?.length > 0">
-          <q-btn @click="step = 3" label="Continue" color="primary" />
-          <q-btn flat @click="step = 1" color="primary" label="Back" class="q-ml-sm" />
-        </q-stepper-navigation>
-
-        <q-banner v-else class="q-mt-md bg-info text-black" type="info" dense>
-          <template v-slot:avatar>
-            <q-icon name="info" color="black" />
-          </template>
-          Please select at least one channel.
-        </q-banner>
-      </q-step>
-
-      <q-step :name="3" title="Upload and process" icon="cloud_upload" :done="step > 3">
+      <q-step :name="2" title="Upload" icon="cloud_upload" :done="step > 2">
         <q-linear-progress
           :value="uploadStats.progress"
           color="primary"
@@ -111,7 +78,6 @@
         </q-linear-progress>
 
         <div class="text-caption text-grey-8 q-mt-sm">
-          <div><strong>Processing speed:</strong> {{ uploadStats.processSpeedStr }}</div>
           <div><strong>Upload speed:</strong> {{ uploadStats.uploadSpeedStr }}</div>
           <div><strong>ETA:</strong> {{ uploadStats.estimatedTimeRemainingStr }}</div>
         </div>
@@ -128,12 +94,12 @@
         <q-btn label="Cancel" class="q-mt-md" v-if="uploading" @click="cancel" />
 
         <q-stepper-navigation>
-          <q-btn flat @click="step = 2" color="primary" label="Back" class="q-ml-sm" />
+          <q-btn flat @click="step = 1" color="primary" label="Back" class="q-ml-sm" />
         </q-stepper-navigation>
       </q-step>
 
       <q-step
-        :name="4"
+        :name="3"
         title="Process & Results"
         icon="science"
         :done="processStatus === 'completed'"
@@ -262,8 +228,6 @@ import { baseUrl as apiBaseUrl } from 'src/boot/api'
 const step = ref(1)
 const enviImagesStore = useEnviImagesStore()
 const files = ref<File[] | null>(null)
-const selectedWavelengths = ref<string[]>([])
-const selectedBands = ref<string[]>([])
 const uploading = ref(false)
 const sessionIdRef = ref<string | null>(null)
 let uploadController: AbortController | null = null
@@ -289,11 +253,8 @@ function formatBytes(bytes: number): string {
 }
 
 const uploadStats = reactive({
-  totalProcessedBytes: 0,
   totalUploadedBytes: 0,
   totalFiles: 0,
-  processTime: 0,
-  processedBytes: 0,
   uploadTime: 0,
   uploadedBytes: 0,
   uploadedFiles: 0,
@@ -305,13 +266,6 @@ const uploadStats = reactive({
       ? `${Math.round(this.progress * 100)}% (${this.uploadedFiles}/${this.totalFiles})`
       : ''
   },
-  get processSpeedStr() {
-    if (this.processTime === 0) {
-      return '-'
-    }
-    const speed = this.processedBytes / (this.processTime / 1000)
-    return `${formatBytes(speed)}/s`
-  },
   get uploadSpeedStr() {
     if (this.uploadTime === 0) {
       return '-'
@@ -320,26 +274,20 @@ const uploadStats = reactive({
     return `${formatBytes(speed)}/s`
   },
   get estimatedTimeRemainingStr() {
-    if (this.processedBytes === 0 || this.uploadedBytes === 0) {
+    if (this.uploadedBytes === 0) {
       return '-'
     }
-    const processSpeed = this.processedBytes / (this.processTime / 1000)
-    const processRemainingBytes = this.totalProcessedBytes - this.processedBytes
     const uploadSpeed = this.uploadedBytes / (this.uploadTime / 1000)
     const uploadRemainingBytes = this.totalUploadedBytes - this.uploadedBytes
-    const estimatedTimeRemaining =
-      processRemainingBytes / processSpeed + uploadRemainingBytes / uploadSpeed
+    const estimatedTimeRemaining = uploadRemainingBytes / uploadSpeed
     const minutes = Math.floor(estimatedTimeRemaining / 60)
     const seconds = Math.floor(estimatedTimeRemaining % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   },
 
   reset() {
-    this.totalProcessedBytes = 0
     this.totalUploadedBytes = 0
     this.totalFiles = 0
-    this.processTime = 0
-    this.processedBytes = 0
     this.uploadTime = 0
     this.uploadedBytes = 0
     this.uploadedFiles = 0
@@ -360,6 +308,10 @@ const imageFiles = computed(() => {
       SUPPORTED_IMAGE_EXTENSIONS.some((ext) => file.name.endsWith(ext)),
     ) || []
   )
+})
+
+const configFile = computed(() => {
+  return files.value?.find((file) => file.name === 'config.json') ?? null
 })
 
 const filesSelectionIsValid = computed(() => {
@@ -388,8 +340,6 @@ watch(files, async () => {
   } else {
     enviImagesStore.clearData()
   }
-  selectedWavelengths.value = []
-  selectedBands.value = []
   uploadStats.reset()
 })
 
@@ -412,47 +362,8 @@ const headerRows = computed(() => {
   }))
 })
 
-const wavelengthsOptions = ref<string[]>([])
-watch(
-  () => enviImagesStore.wavelengths,
-  (newWavelengths) => {
-    wavelengthsOptions.value = newWavelengths || []
-  },
-  { immediate: true },
-)
-
-function wavelengthsFilterFn(val: string, update: (callback: () => void) => void) {
-  update(() => {
-    const needle = val.toLowerCase()
-    wavelengthsOptions.value =
-      enviImagesStore.wavelengths?.filter((wavelength) =>
-        wavelength.toLowerCase().includes(needle),
-      ) || []
-  })
-}
-
-const bandNamesOptions = ref<string[]>([])
-watch(
-  () => enviImagesStore.bandNames,
-  (newBandNames) => {
-    bandNamesOptions.value = newBandNames || []
-  },
-  { immediate: true },
-)
-
-function bandNamesFilterFn(val: string, update: (callback: () => void) => void) {
-  update(() => {
-    const needle = val.toLowerCase()
-    bandNamesOptions.value =
-      enviImagesStore.bandNames?.filter((bandName) => bandName.toLowerCase().includes(needle)) || []
-  })
-}
-
 const canUploadFiles = computed(() => {
-  const hasImages = enviImagesStore.images !== null
-  const hasWavelengths = selectedWavelengths.value.length > 0
-  const hasBands = selectedBands.value.length > 0
-  return hasImages && (hasWavelengths || hasBands) && !uploading.value
+  return enviImagesStore.images !== null && !uploading.value
 })
 
 async function initSession(): Promise<UploadInitResponse> {
@@ -535,35 +446,8 @@ async function uploadHeader(image: EnviImage) {
 
 async function uploadImage(image: EnviImage) {
   try {
-    const startTime = performance.now()
-    uploadStats.totalProcessedBytes += image.bilFile.size
-
-    console.log(`Processing image: ${image.bilFile.name}`)
-
-    let selectedChannels: number[]
-
-    if (selectedWavelengths.value.length > 0) {
-      selectedChannels = selectedWavelengths.value.map(
-        (wavelength) => image.headerData['wavelength']?.indexOf(wavelength) ?? -1,
-      )
-    } else {
-      selectedChannels = selectedBands.value.map(
-        (bandName) => image.headerData['band_names']?.indexOf(bandName) ?? -1,
-      )
-    }
-
-    console.log(`Reading BIL data for ${image.bilFile.name}, channels: ${selectedChannels.length}`)
-    const bilData = await image.getBilData(selectedChannels)
-    console.log(`BIL data read, size: ${bilData.buffer.byteLength} bytes`)
-
-    const readBuffer = bilData.buffer as ArrayBuffer
-    uploadStats.processedBytes += image.bilFile.size
-    uploadStats.processTime += performance.now() - startTime
-
-    const filename = encodeURIComponent(image.bilFile.name)
-    console.log(`Starting BIL upload: ${filename}`)
-    await uploadBuffer(readBuffer, filename)
-    console.log(`BIL upload complete: ${filename}`)
+    const buffer = await image.bilFile.arrayBuffer()
+    await uploadBuffer(buffer, encodeURIComponent(image.bilFile.name))
   } catch (error) {
     console.error(`Failed to upload image ${image.bilFile.name}:`, error)
     throw error
@@ -604,13 +488,20 @@ async function upload() {
 
   uploading.value = true
   uploadStats.reset()
-  uploadStats.totalFiles = Object.keys(enviImagesStore.images).length * 2 // headers + images
+  uploadStats.totalFiles =
+    Object.keys(enviImagesStore.images).length * 2 + (configFile.value ? 1 : 0) // headers + images (+ optional config)
 
   const promises: Promise<void>[] = []
 
   for (const image of Object.values(enviImagesStore.images)) {
     promises.push(uploadHeader(image))
     promises.push(uploadImage(image))
+  }
+
+  if (configFile.value) {
+    promises.push(
+      configFile.value.arrayBuffer().then((buf) => uploadBuffer(buf, 'config.json')),
+    )
   }
 
   try {
@@ -644,7 +535,7 @@ async function upload() {
     timeout: 3000,
   })
 
-  step.value = 4
+  step.value = 3
 }
 
 async function cancel() {

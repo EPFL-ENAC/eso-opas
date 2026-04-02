@@ -376,19 +376,21 @@ async def process_ties(request: ProcessRequest) -> ProcessResponse:
 
     output_dir.mkdir(exist_ok=True)
 
-    config_data: dict = {
-        "cornerMaxNCorners": request.corner_max_n_corners,
-        "ransacIterations": request.ransac_iterations,
-        "ransacThreshold": request.ransac_threshold,
-    }
-    if request.lines_starts:
-        config_data["linesStarts"] = request.lines_starts
-    if request.lines_ends:
-        config_data["linesEnds"] = request.lines_ends
-
     config_path = session_dir / "config.json"
-    with open(config_path, "w") as f:
-        json.dump(config_data, f)
+    if config_path.exists():
+        logger.info(f"Using user-provided config.json for session {session_id}")
+    else:
+        config_data: dict = {
+            "cornerMaxNCorners": request.corner_max_n_corners,
+            "ransacIterations": request.ransac_iterations,
+            "ransacThreshold": request.ransac_threshold,
+        }
+        if request.lines_starts:
+            config_data["linesStarts"] = request.lines_starts
+        if request.lines_ends:
+            config_data["linesEnds"] = request.lines_ends
+        with open(config_path, "w") as f:
+            json.dump(config_data, f)
 
     if config.USE_K8S:
         return await _start_k8s_job(session_id, request, session_dir, output_dir)

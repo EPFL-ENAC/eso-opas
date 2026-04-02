@@ -33,7 +33,7 @@ TIE_IMAGE ?= ghcr.io/epfl-enac/epfl-eso/opas/tie
 TIE_TAG ?= v1.0.4
 
 k3d-up:
-	mkdir -p /tmp/opas-uploads
+	mkdir -p /tmp/opas-uploads && chown $(shell id -u):$(shell id -g) /tmp/opas-uploads
 	k3d cluster create opas-local \
 		--volume /tmp/opas-uploads:/tmp/opas-uploads || true
 	docker pull $(TIE_IMAGE):$(TIE_TAG)

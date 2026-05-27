@@ -53,6 +53,12 @@ The website will be available at [http://localhost:9000](http://localhost:9000).
 
 ## Deploying the TIE detector image
 
+Download the [base Dockerfile](https://gitlab.epfl.ch/topo/opastiepointsdetectordocker/-/raw/main/Dockerfile) and place it in `backend/tie/`. Then, patch it by running:
+
+```bash
+cd backend && make patch-tie-detector-dockerfile
+```
+
 The TIE detector image is built and pushed manually (not by CI):
 
 ```bash

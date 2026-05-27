@@ -9,6 +9,9 @@ install:
 	uv venv --allow-existing
 	uv pip install -e .[dev]
 
+patch-tie-detector-dockerfile:
+	python tie/patch_dockerfile.py
+
 build-tie-detector:
 	docker build -t tie-detector:latest -f tie/Dockerfile tie/
 

@@ -51,6 +51,14 @@ make run-frontend
 
 The website will be available at [http://localhost:9000](http://localhost:9000).
 
+## Updating the instructions on the website
+
+Download the [original Markdown instructions](https://gitlab.epfl.ch/topo/opastiepointsdetectordocker/-/raw/main/ToolConfiguration.md) and place the file in `backend/tie/`. Then, convert them into the frontend component:
+
+```bash
+make generate-instructions-component
+```
+
 ## Deploying the TIE detector image
 
 Download the [base Dockerfile](https://gitlab.epfl.ch/topo/opastiepointsdetectordocker/-/raw/main/Dockerfile) and place it in `backend/tie/`. Then, patch it by running:

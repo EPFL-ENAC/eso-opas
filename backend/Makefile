@@ -3,7 +3,7 @@ env_path=../.env
 REGISTRY := ghcr.io/epfl-enac/epfl-eso/opas
 TAG ?= dev
 
-.PHONY: install run test lint build-tie-detector push-tie-detector
+.PHONY: install run test lint patch-tie-detector-dockerfile build-tie-detector push-tie-detector
 
 install:
 	uv venv --allow-existing

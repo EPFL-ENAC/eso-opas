@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <q-card flat bordered>
     <q-stepper v-model="step" vertical animated>
       <q-step :name="1" title="Select files" icon="attach_file" :done="step > 1">
         <q-file
@@ -215,7 +215,7 @@
         </div>
       </q-step>
     </q-stepper>
-  </div>
+  </q-card>
 </template>
 
 <script setup lang="ts">

@@ -1,4 +1,4 @@
-.PHONY: install lint run-backend run-frontend dev test k3d-up k3d-down
+.PHONY: install lint run-backend run-frontend dev test generate-instructions-component k3d-up k3d-down
 
 install:
 	uvx pre-commit install
@@ -21,6 +21,9 @@ dev:
 
 test:
 	cd backend && make test
+
+generate-instructions-component:
+	python backend/tie/generate_instructions_component.py
 
 # ---------- Local K8s (k3d) ----------
 # Creates a minimal k3d cluster so the backend (running locally) can spawn

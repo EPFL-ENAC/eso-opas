@@ -49,10 +49,12 @@
           :columns="headerColumns"
           :rows="headerRows"
           dense
+          flat
+          bordered
         />
 
         <q-stepper-navigation v-if="filesSelectionIsValid && enviImagesStore.images">
-          <q-btn @click="step = 2" label="Continue" color="primary" />
+          <q-btn @click="step = 2" label="Continue" color="primary" unelevated />
         </q-stepper-navigation>
 
         <q-banner v-else class="q-mt-md bg-info text-black" type="info" dense>
@@ -96,8 +98,8 @@
         />
 
         <q-stepper-navigation v-if="selectedWavelengths?.length > 0 || selectedBands?.length > 0">
-          <q-btn @click="step = 3" label="Continue" color="primary" />
-          <q-btn flat @click="step = 1" color="primary" label="Back" class="q-ml-sm" />
+          <q-btn @click="step = 3" label="Continue" color="primary" unelevated />
+          <q-btn flat @click="step = 1" color="primary" label="Back" class="q-ml-sm" unelevated />
         </q-stepper-navigation>
 
         <q-banner v-else class="q-mt-md bg-info text-black" type="info" dense>
@@ -134,12 +136,13 @@
           class="q-mt-md"
           :disable="!canUploadFiles"
           @click="upload"
+          unelevated
         />
 
-        <q-btn label="Cancel" class="q-mt-md" v-if="uploading" @click="cancel" />
+        <q-btn label="Cancel" class="q-mt-md" v-if="uploading" @click="cancel" unelevated />
 
         <q-stepper-navigation>
-          <q-btn flat @click="step = 2" color="primary" label="Back" class="q-ml-sm" />
+          <q-btn flat @click="step = 2" color="primary" label="Back" class="q-ml-sm" unelevated />
         </q-stepper-navigation>
       </q-step>
 
@@ -157,6 +160,7 @@
             icon="play_arrow"
             :loading="processStatus === 'starting'"
             @click="startProcessing"
+            unelevated
           />
         </div>
 
@@ -189,6 +193,7 @@
             :icon="showLogs ? 'expand_less' : 'expand_more'"
             :label="showLogs ? 'Hide Logs' : 'Show Logs'"
             @click="showLogs = !showLogs"
+            unelevated
           />
           <pre v-if="showLogs && containerLogs" class="log-viewer q-mt-sm">{{ containerLogs }}</pre>
         </div>
@@ -228,6 +233,7 @@
             :icon="showLogs ? 'expand_less' : 'expand_more'"
             :label="showLogs ? 'Hide Logs' : 'Show Logs'"
             @click="toggleLogs"
+            unelevated
           />
           <pre v-if="showLogs && containerLogs" class="log-viewer q-mt-sm">{{ containerLogs }}</pre>
         </div>
@@ -248,6 +254,7 @@
             :icon="showLogs ? 'expand_less' : 'expand_more'"
             :label="showLogs ? 'Hide Logs' : 'Show Logs'"
             @click="toggleLogs"
+            unelevated
           />
           <pre v-if="showLogs && containerLogs" class="log-viewer q-mt-sm">{{ containerLogs }}</pre>
           <q-btn
@@ -256,6 +263,7 @@
             icon="refresh"
             class="q-mt-md"
             @click="startProcessing"
+            unelevated
           />
         </div>
       </q-step>

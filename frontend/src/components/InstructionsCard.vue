@@ -1,8 +1,7 @@
 <template>
-  <q-card flat bordered style="max-width: 800px; margin: 0 auto">
+  <q-card flat bordered>
     <q-card-section>
-      <h1 class="text-h5 q-mt-md q-mb-sm">Input files Configuration</h1>
-      <h2 class="text-h6 q-mt-md q-mb-sm">General pipeline</h2>
+      <h2 class="text-h6 q-mt-none q-mb-sm">General pipeline</h2>
       <p class="q-mb-sm">Under the hood, this tool uses the tie point matching toolbox from <a href="https://github.com/french-paragon/steviapp" target="_blank" class="text-primary">Steviapp</a>, combined with the push-broom image module <a href="https://github.com/french-paragon/PikaLTools/tree/main/tools/MalahydSteviappModule" target="_blank" class="text-primary">Malahyd</a>.</p>
       <p class="q-mb-sm">The processing pipeline is made of three main step:</p>
       <ul class="q-mb-md"><li class="q-mb-xs">Tie points detection</li></ul>

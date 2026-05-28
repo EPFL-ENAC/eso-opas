@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate frontend/src/components/InstructionsCard.vue from backend/tie/ToolConfiguration.md.
-
-This script has zero external dependencies — it only uses the Python standard library.
-It performs a simple Markdown-to-HTML conversion and embeds the result in a Quasar
-Vue single-file component, with every H2 section after the first wrapped in a
-QExpansionItem for collapsibility.
+Note: rendering of the h1 heading has been commented out.
 """
 
 import html as html_module
@@ -211,18 +207,18 @@ def generate_vue_component(sections: list[dict]) -> str:
 
     lines: list[str] = []
     lines.append("<template>")
-    lines.append('  <q-card flat bordered style="max-width: 800px; margin: 0 auto">')
+    lines.append("  <q-card flat bordered>")
     lines.append("    <q-card-section>")
 
     # H1 title
-    h1 = sections[0]
-    h1_html = inline_to_html(capitalize_first(h1["heading"]))
-    lines.append(f'      <h1 class="text-h5 q-mt-md q-mb-sm">{h1_html}</h1>')
+    # h1 = sections[0]
+    # h1_html = inline_to_html(capitalize_first(h1["heading"]))
+    # lines.append(f'      <h1 class="text-h5 q-mt-md q-mb-sm">{h1_html}</h1>')
 
     # First H2 — rendered directly (non-collapsible)
     first_h2 = sections[1]
     h2_html = inline_to_html(capitalize_first(first_h2["heading"]))
-    lines.append(f'      <h2 class="text-h6 q-mt-md q-mb-sm">{h2_html}</h2>')
+    lines.append(f'      <h2 class="text-h6 q-mt-none q-mb-sm">{h2_html}</h2>')
     for block in first_h2["blocks"]:
         lines.append("      " + block_to_html(block))
 

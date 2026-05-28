@@ -534,55 +534,56 @@ async function uploadBuffer(buffer: ArrayBuffer, filename: string) {
   }
 }
 
-async function uploadHeader(image: EnviImage) {
+function getSelectedChannels(image: EnviImage): number[] {
+  if (selectedWavelengths.value.length > 0) {
+    return selectedWavelengths.value.map(
+      (wavelength) => image.headerData['wavelength']?.indexOf(wavelength) ?? -1,
+    )
+  }
+  return selectedBands.value.map(
+    (bandName) => image.headerData['band_names']?.indexOf(bandName) ?? -1,
+  )
+}
+
+async function uploadData(
+  file: File,
+  getData: (channels: number[]) => Promise<Uint8Array>,
+  channels: number[],
+  trackProcessing = false,
+) {
   try {
-    console.log(`Reading header file: ${image.headerFile.name}`)
-    const readBuffer = await image.headerFile.arrayBuffer()
-    const filename = encodeURIComponent(image.headerFile.name)
-    console.log(`Header file read, starting upload: ${filename}`)
-    await uploadBuffer(readBuffer, filename)
-    console.log(`Header upload complete: ${filename}`)
+    const startTime = performance.now()
+    if (trackProcessing) {
+      uploadStats.totalProcessedBytes += file.size
+    }
+
+    console.log(`Processing ${file.name}`)
+    const data = await getData(channels)
+    console.log(`${file.name} data read, size: ${data.byteLength} bytes`)
+
+    if (trackProcessing) {
+      uploadStats.processedBytes += file.size
+      uploadStats.processTime += performance.now() - startTime
+    }
+
+    const filename = encodeURIComponent(file.name)
+    console.log(`Starting upload: ${filename}`)
+    await uploadBuffer(data.buffer as ArrayBuffer, filename)
+    console.log(`Upload complete: ${filename}`)
   } catch (error) {
-    console.error(`Failed to upload header ${image.headerFile.name}:`, error)
+    console.error(`Failed to upload ${file.name}:`, error)
     throw error
   }
 }
 
+async function uploadHeader(image: EnviImage) {
+  const channels = getSelectedChannels(image)
+  await uploadData(image.headerFile, (ch) => image.getHeaderData(ch), channels)
+}
+
 async function uploadImage(image: EnviImage) {
-  try {
-    const startTime = performance.now()
-    uploadStats.totalProcessedBytes += image.bilFile.size
-
-    console.log(`Processing image: ${image.bilFile.name}`)
-
-    let selectedChannels: number[]
-
-    if (selectedWavelengths.value.length > 0) {
-      selectedChannels = selectedWavelengths.value.map(
-        (wavelength) => image.headerData['wavelength']?.indexOf(wavelength) ?? -1,
-      )
-    } else {
-      selectedChannels = selectedBands.value.map(
-        (bandName) => image.headerData['band_names']?.indexOf(bandName) ?? -1,
-      )
-    }
-
-    console.log(`Reading BIL data for ${image.bilFile.name}, channels: ${selectedChannels.length}`)
-    const bilData = await image.getBilData(selectedChannels)
-    console.log(`BIL data read, size: ${bilData.buffer.byteLength} bytes`)
-
-    const readBuffer = bilData.buffer as ArrayBuffer
-    uploadStats.processedBytes += image.bilFile.size
-    uploadStats.processTime += performance.now() - startTime
-
-    const filename = encodeURIComponent(image.bilFile.name)
-    console.log(`Starting BIL upload: ${filename}`)
-    await uploadBuffer(readBuffer, filename)
-    console.log(`BIL upload complete: ${filename}`)
-  } catch (error) {
-    console.error(`Failed to upload image ${image.bilFile.name}:`, error)
-    throw error
-  }
+  const channels = getSelectedChannels(image)
+  await uploadData(image.bilFile, (ch) => image.getBilData(ch), channels, true)
 }
 
 async function upload() {

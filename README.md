@@ -70,6 +70,8 @@ cd backend && make patch-tie-detector-dockerfile
 The TIE detector image is built and pushed manually (not by CI):
 
 ```bash
+export CR_PAT=YOUR_TOKEN  # classic GitHub token with write:packages
+echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 cd backend && make push-tie-detector TAG=dev
 ```
 

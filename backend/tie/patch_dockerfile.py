@@ -41,17 +41,17 @@ def patch(content: str) -> str:
         raise ValueError("Could not find the second apt-install line.")
     content = content.replace(apt_line, COMPILER_WRAPPER_BLOCK, 1)
 
-    # 2. Patch the three plain cmake lines (libstevi, status optional, steviapp).
+    # 2. Patch the four plain cmake lines (multidimarrays, libstevi, status optional, steviapp).
     old_plain = "cmake .. -DCMAKE_BUILD_TYPE=Release; make"
     new_plain = f"cmake .. -DCMAKE_BUILD_TYPE=Release {CMAKE_FLAGS}; make"
 
     count = 0
-    while old_plain in content and count < 3:
+    while old_plain in content and count < 4:
         content = content.replace(old_plain, new_plain, 1)
         count += 1
-    if count != 3:
+    if count != 4:
         raise ValueError(
-            f"Expected 3 occurrences of '{old_plain}', found {count}. The upstream Dockerfile may have changed."
+            f"Expected 4 occurrences of '{old_plain}', found {count}. The upstream Dockerfile may have changed."
         )
 
     # 3. Patch the PikaLTools cmake line.
